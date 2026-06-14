@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tab Snapper - Fast Screenshot Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom animations and styling */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.4s ease-out forwards;
+        }
+        .shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .dark .shimmer {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen font-sans transition-colors duration-300">
+
+    <div class="max-w-5xl mx-auto p-6 flex flex-col min-h-screen">
+        
+        <!-- Header -->
+        <header class="mb-8 text-center pt-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white mb-4 shadow-lg shadow-blue-500/30">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                    <circle cx="12" cy="13" r="3"></circle>
+                </svg>
+            </div>
+            <h1 class="text-3xl font-extrabold tracking-tight mb-2">Tab Snapper</h1>
+            <p class="text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
+                Quickly capture high-quality screenshots of any browser tab, window, or your entire screen.
+            </p>
+        </header>
+
+        <!-- Main Controls -->
+        <main class="flex-grow flex flex-col items-center w-full">
+            
+            <button id="captureBtn" class="group relative inline-flex items-center justify-center gap-2 px-8 py-4 font-bold text-white bg-blue-600 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 mb-8">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:scale-110 transition-transform">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                Select Tab to Capture
+            </button>
+
+            <!-- Status Message -->
+            <div id="statusMessage" class="hidden px-4 py-3 rounded-lg mb-6 text-sm font-medium transition-all"></div>
+
+            <!-- Preview Area -->
+            <div id="previewContainer" class="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col items-center justify-center min-h-[400px] relative transition-all">
+                
+                <!-- Empty State -->
+                <div id="emptyState" class="text-center p-8 flex flex-col items-center opacity-100 transition-opacity duration-300">
+                    <div class="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-1">No screenshot yet</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
+                        Click the capture button above and choose a tab or screen. Your screenshot will appear here.
+                    </p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hidden">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                    <p class="font-medium text-slate-600 dark:text-slate-300">Capturing display...</p>
+                </div>
+
+                <!-- Image Preview -->
+                <img id="previewImage" class="max-w-full max-h-[60vh] object-contain hidden" alt="Screenshot preview">
+            </div>
+
+            <!-- Action Buttons (Hidden by default) -->
+            <div id="actionButtons" class="mt-8 flex flex-wrap gap-4 hidden animate-fade-in">
+                <button id="downloadBtn" class="flex items-center gap-2 px-6 py-3 font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download PNG
+                </button>
+                <button id="newCaptureBtn" class="flex items-center gap-2 px-6 py-3 font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                        <path d="M3 3v5h5"></path>
+                    </svg>
+                    Take Another
+                </button>
+            </div>
+            
+        </main>
+
+        <!-- Footer -->
+        <footer class="mt-12 text-center text-sm text-slate-400 dark:text-slate-500 pb-4">
+            <p>Runs entirely in your browser. No images are uploaded to any server.</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Elements
+        const captureBtn = document.getElementById('captureBtn');
+        const previewContainer = document.getElementById('previewContainer');
+        const emptyState = document.getElementById('emptyState');
+        const loadingState = document.getElementById('loadingState');
+        const previewImage = document.getElementById('previewImage');
+        const actionButtons = document.getElementById('actionButtons');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const newCaptureBtn = document.getElementById('newCaptureBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        let currentImageURL = null;
+
+        // Show toast/status message
+        function showMessage(msg, isError = false) {
+            statusMessage.textContent = msg;
+            statusMessage.className = `px-4 py-3 rounded-lg mb-6 text-sm font-medium transition-all ${
+                isError 
+                ? 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800' 
+                : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800'
+            } block animate-fade-in`;
+            
+            // Auto hide after 5 seconds if it's an error
+            if (isError) {
+                setTimeout(() => {
+                    statusMessage.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        function hideMessage() {
+            statusMessage.classList.add('hidden');
+        }
+
+        // The core capture logic
+        async function captureScreen() {
+            hideMessage();
+            try {
+                // Request the user's screen/tab
+                // preferCurrentTab is false so they get the picker to choose *other* tabs
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { 
+                        displaySurface: "browser", 
+                    },
+                    audio: false
+                });
+
+                // Show loading indicator
+                emptyState.classList.add('hidden');
+                previewImage.classList.add('hidden');
+                actionButtons.classList.add('hidden');
+                loadingState.classList.remove('hidden');
+                captureBtn.disabled = true;
+                captureBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+                // Create a hidden video element to read the stream
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.autoplay = true;
+                video.muted = true;
+
+                // Wait for the video to start playing and metadata to load
+                video.onloadedmetadata = () => {
+                    video.play().then(() => {
+                        // Give it a brief moment to ensure the first frame is fully rendered
+                        setTimeout(() => {
+                            // Create a canvas to draw the video frame
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                            // Convert canvas to image data URL
+                            currentImageURL = canvas.toDataURL('image/png');
+
+                            // Stop all video tracks to end the screen sharing session immediately
+                            stream.getTracks().forEach(track => track.stop());
+
+                            // Display the result
+                            previewImage.src = currentImageURL;
+                            loadingState.classList.add('hidden');
+                            previewImage.classList.remove('hidden');
+                            actionButtons.classList.remove('hidden');
+                            captureBtn.classList.add('hidden'); // Hide main button after success
+                            
+                            previewContainer.classList.add('border-transparent');
+                            previewContainer.classList.remove('border-dashed', 'border-slate-300', 'bg-gray-100');
+
+                        }, 500); // 500ms delay helps avoid blank white frames sometimes returned initially
+                    }).catch(err => {
+                        throw new Error("Failed to play video stream: " + err.message);
+                    });
+                };
+            } catch (error) {
+                console.error("Capture failed:", error);
+                loadingState.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                captureBtn.disabled = false;
+                captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                if (error.message && error.message.includes('permissions policy')) {
+                    showMessage("Capture blocked: This preview environment restricts screen recording. Please save this code as an .html file and open it locally in your browser to use it.", true);
+                } else if (error.name !== 'NotAllowedError') {
+                    showMessage("Failed to capture: " + error.message, true);
+                } else {
+                    showMessage("Capture cancelled.", false);
+                    setTimeout(hideMessage, 3000);
+                }
+            }
+        }
+
+        // Download the current screenshot
+        function downloadScreenshot() {
+            if (!currentImageURL) return;
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `screenshot-${timestamp}.png`;
+            
+            const a = document.createElement('a');
+            a.href = currentImageURL;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Reset the UI to take another screenshot
+        function resetCapture() {
+            currentImageURL = null;
+            previewImage.src = "";
+            previewImage.classList.add('hidden');
+            actionButtons.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            captureBtn.classList.remove('hidden');
+            captureBtn.disabled = false;
+            captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            previewContainer.classList.remove('border-transparent');
+            previewContainer.classList.add('border-dashed', 'border-slate-300', 'bg-gray-100');
+            hideMessage();
+        }
+
+        // Event Listeners
+        captureBtn.addEventListener('click', captureScreen);
+        downloadBtn.addEventListener('click', downloadScreenshot);
+        newCaptureBtn.addEventListener('click', resetCapture);
+
+    </script>
+</body>
+</html>
