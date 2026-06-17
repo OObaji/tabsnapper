@@ -437,8 +437,11 @@
             return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
         }
 
+        // Now returns an array of formatted times instead of a combined string
         function parseFormattedTime(timeStr) {
-            let times = timeStr.split(/[-to]+/).map(t => t.trim());
+            // Split strictly by hyphens or the word "to" surrounded by space
+            let times = timeStr.split(/\s*-\s*|\s+to\s+/i).map(t => t.trim());
+            
             let formatted = times.map(t => {
                 let clean = t.toUpperCase().replace(/\s/g, '');
                 if (clean === '12NOON' || clean === 'NOON') return '12:00';
@@ -455,7 +458,7 @@
                 
                 return `${hrs.toString().padStart(2, '0')}:${mins}`;
             });
-            return formatted.join('-');
+            return formatted; // Return the array of times
         }
 
         function parseSchedule(input) {
@@ -483,8 +486,14 @@
                     let cleanTime = time.replace(/[;:.]$/, '').trim();
                     if (cleanTime) {
                         let formattedDate = parseFormattedDate(currentDate);
-                        let formattedTime = parseFormattedTime(cleanTime);
-                        results.push(`${formattedDate} ${formattedTime}`);
+                        let formattedTimesArray = parseFormattedTime(cleanTime);
+                        
+                        // Group the start and end times together in an object
+                        results.push({
+                            date: formattedDate,
+                            start: formattedTimesArray[0],
+                            end: formattedTimesArray.length > 1 ? formattedTimesArray[1] : null
+                        });
                     }
                 });
             }
@@ -506,44 +515,57 @@
                 const row = document.createElement('div');
                 row.className = 'flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg animate-fade-in';
                 
+                const startFull = `${item.date} ${item.start}`;
+                const endFull = item.end ? `${item.date} ${item.end}` : null;
+                const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+
                 // Top Text + Actions Bar
                 const topBar = document.createElement('div');
                 topBar.className = 'flex flex-wrap items-center justify-between gap-4';
 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'font-bold text-lg text-slate-800 dark:text-slate-100 break-words tracking-tight';
-                textSpan.textContent = item;
+                textSpan.textContent = displayText;
                 
                 const actionsDiv = document.createElement('div');
                 actionsDiv.className = 'flex gap-2 items-center';
 
-                const copyBtn = document.createElement('button');
-                copyBtn.className = 'px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap';
-                copyBtn.textContent = 'Copy Text';
-                
-                copyBtn.addEventListener('click', () => {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = item;
-                    textArea.style.position = "absolute";
-                    textArea.style.left = "-9999px";
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand("copy");
-                    textArea.remove();
+                // Helper to create copy buttons
+                function createCopyBtn(label, textToCopy) {
+                    const btn = document.createElement('button');
+                    btn.className = 'px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap';
+                    btn.textContent = label;
                     
-                    copyBtn.textContent = 'Copied!';
-                    copyBtn.classList.add('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
-                    setTimeout(() => {
-                        copyBtn.textContent = 'Copy';
-                        copyBtn.classList.remove('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
-                    }, 2000);
-                });
+                    btn.addEventListener('click', () => {
+                        const textArea = document.createElement("textarea");
+                        textArea.value = textToCopy;
+                        textArea.style.position = "absolute";
+                        textArea.style.left = "-9999px";
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand("copy");
+                        textArea.remove();
+                        
+                        btn.textContent = 'Copied!';
+                        btn.classList.add('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
+                        setTimeout(() => {
+                            btn.textContent = label;
+                            btn.classList.remove('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
+                        }, 2000);
+                    });
+                    return btn;
+                }
+
+                // Add Start and End Copy Buttons
+                actionsDiv.appendChild(createCopyBtn('Copy Start', startFull));
+                if (endFull) {
+                    actionsDiv.appendChild(createCopyBtn('Copy End', endFull));
+                }
 
                 const captureMapBtn = document.createElement('button');
-                captureMapBtn.className = 'px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border border-transparent rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap flex items-center gap-2 shadow-sm';
+                captureMapBtn.className = 'px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border border-transparent rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap flex items-center gap-2 shadow-sm';
                 captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
 
-                actionsDiv.appendChild(copyBtn);
                 actionsDiv.appendChild(captureMapBtn);
                 
                 topBar.appendChild(textSpan);
@@ -584,7 +606,7 @@
                                 const a = document.createElement('a');
                                 a.href = croppedScreenshot;
                                 // Clean filename using date string
-                                a.download = `Map-${item.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+                                a.download = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
                                 a.click();
                             };
                         }
