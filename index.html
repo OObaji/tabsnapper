@@ -108,12 +108,56 @@
                 </button>
             </div>
             
+            <!-- New Schedule Parser Section -->
+            <div class="w-full max-w-4xl mt-16 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-all">
+                <h2 class="text-xl font-bold mb-2 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Schedule Request Parser
+                </h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Paste your schedule request text below to automatically separate the dates and times into copyable fields.</p>
+                
+                <textarea id="scheduleInput" rows="3" class="w-full p-4 mb-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all placeholder:text-slate-400" placeholder="E.g., TRAIL MONITORING REQUEST FOR:- 15TH JUNE FROM 8AM-10AM, 12NOON-2PM..."></textarea>
+                
+                <button id="parseBtn" class="px-6 py-2.5 bg-slate-800 dark:bg-slate-100 hover:bg-slate-900 dark:hover:bg-white text-white dark:text-slate-900 font-semibold rounded-lg transition-colors shadow-sm mb-6">
+                    Parse Request
+                </button>
+
+                <div id="scheduleOutput" class="flex flex-col gap-3">
+                    <!-- Parsed items will appear here -->
+                </div>
+            </div>
+
         </main>
 
         <!-- Footer -->
         <footer class="mt-12 text-center text-sm text-slate-400 dark:text-slate-500 pb-4">
             <p>Runs entirely in your browser. No images are uploaded to any server.</p>
         </footer>
+    </div>
+
+    <!-- Crop Overlay UI -->
+    <div id="cropOverlay" class="fixed inset-0 z-[9999] hidden bg-slate-900/95 flex-col select-none">
+        <div class="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800 shadow-md">
+            <div class="text-white font-medium flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                    <path d="M6 2v14a2 2 0 0 0 2 2h14"></path>
+                    <path d="M18 22V8a2 2 0 0 0-2-2H2"></path>
+                </svg>
+                Click and drag to select map region
+            </div>
+            <div class="flex gap-3">
+                <button id="cropCancelBtn" class="px-5 py-2 text-slate-300 hover:text-white transition-colors font-medium">Cancel</button>
+                <button id="cropConfirmBtn" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold shadow-sm transition-colors">Confirm Selection</button>
+            </div>
+        </div>
+        <div class="flex-grow relative overflow-hidden flex items-center justify-center p-4 w-full h-full" id="cropWorkspace">
+            <canvas id="cropCanvas" class="cursor-crosshair shadow-2xl max-w-full max-h-full object-contain bg-black/50"></canvas>
+        </div>
     </div>
 
     <script>
@@ -151,19 +195,44 @@
             statusMessage.classList.add('hidden');
         }
 
-        // The core capture logic
+        // --- Core Screen Capture Utility ---
+        async function getScreenCaptureDataUrl() {
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: { displaySurface: "browser" },
+                audio: false
+            });
+
+            return new Promise((resolve, reject) => {
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.autoplay = true;
+                video.muted = true;
+
+                video.onloadedmetadata = () => {
+                    video.play().then(() => {
+                        setTimeout(() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const dataUrl = canvas.toDataURL('image/png');
+                            
+                            stream.getTracks().forEach(track => track.stop());
+                            resolve(dataUrl);
+                        }, 500); 
+                    }).catch(err => {
+                        stream.getTracks().forEach(track => track.stop());
+                        reject(new Error("Failed to play video stream: " + err.message));
+                    });
+                };
+            });
+        }
+
+        // The core capture logic (Updated to use utility)
         async function captureScreen() {
             hideMessage();
             try {
-                // Request the user's screen/tab
-                // preferCurrentTab is false so they get the picker to choose *other* tabs
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { 
-                        displaySurface: "browser", 
-                    },
-                    audio: false
-                });
-
                 // Show loading indicator
                 emptyState.classList.add('hidden');
                 previewImage.classList.add('hidden');
@@ -172,46 +241,18 @@
                 captureBtn.disabled = true;
                 captureBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
-                // Create a hidden video element to read the stream
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                video.autoplay = true;
-                video.muted = true;
+                currentImageURL = await getScreenCaptureDataUrl();
 
-                // Wait for the video to start playing and metadata to load
-                video.onloadedmetadata = () => {
-                    video.play().then(() => {
-                        // Give it a brief moment to ensure the first frame is fully rendered
-                        setTimeout(() => {
-                            // Create a canvas to draw the video frame
-                            const canvas = document.createElement('canvas');
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                // Display the result
+                previewImage.src = currentImageURL;
+                loadingState.classList.add('hidden');
+                previewImage.classList.remove('hidden');
+                actionButtons.classList.remove('hidden');
+                captureBtn.classList.add('hidden'); 
+                
+                previewContainer.classList.add('border-transparent');
+                previewContainer.classList.remove('border-dashed', 'border-slate-300', 'bg-gray-100');
 
-                            // Convert canvas to image data URL
-                            currentImageURL = canvas.toDataURL('image/png');
-
-                            // Stop all video tracks to end the screen sharing session immediately
-                            stream.getTracks().forEach(track => track.stop());
-
-                            // Display the result
-                            previewImage.src = currentImageURL;
-                            loadingState.classList.add('hidden');
-                            previewImage.classList.remove('hidden');
-                            actionButtons.classList.remove('hidden');
-                            captureBtn.classList.add('hidden'); // Hide main button after success
-                            
-                            previewContainer.classList.add('border-transparent');
-                            previewContainer.classList.remove('border-dashed', 'border-slate-300', 'bg-gray-100');
-
-                        }, 500); // 500ms delay helps avoid blank white frames sometimes returned initially
-                    }).catch(err => {
-                        throw new Error("Failed to play video stream: " + err.message);
-                    });
-                };
             } catch (error) {
                 console.error("Capture failed:", error);
                 loadingState.classList.add('hidden');
@@ -265,6 +306,304 @@
         captureBtn.addEventListener('click', captureScreen);
         downloadBtn.addEventListener('click', downloadScreenshot);
         newCaptureBtn.addEventListener('click', resetCapture);
+
+        // --- Crop Overlay Logic ---
+        const cropOverlay = document.getElementById('cropOverlay');
+        const cropCanvas = document.getElementById('cropCanvas');
+        const cropCancelBtn = document.getElementById('cropCancelBtn');
+        const cropConfirmBtn = document.getElementById('cropConfirmBtn');
+        const cropCtx = cropCanvas.getContext('2d');
+
+        let cropImg = new Image();
+        let cropResolveFn = null;
+        let cropStartX, cropStartY, cropEndX, cropEndY, isCropping = false;
+
+        function openCropOverlay(dataUrl) {
+            return new Promise((resolve) => {
+                cropResolveFn = resolve;
+                cropImg.onload = () => {
+                    cropCanvas.width = cropImg.naturalWidth;
+                    cropCanvas.height = cropImg.naturalHeight;
+                    cropStartX = 0; cropStartY = 0; cropEndX = 0; cropEndY = 0;
+                    drawCropState();
+                    cropOverlay.classList.remove('hidden');
+                    cropOverlay.classList.add('flex');
+                };
+                cropImg.src = dataUrl;
+            });
+        }
+
+        function closeCropOverlay() {
+            cropOverlay.classList.add('hidden');
+            cropOverlay.classList.remove('flex');
+            cropResolveFn = null;
+        }
+
+        cropCancelBtn.addEventListener('click', () => {
+            if(cropResolveFn) cropResolveFn(null);
+            closeCropOverlay();
+        });
+
+        cropConfirmBtn.addEventListener('click', () => {
+            if (cropStartX === cropEndX || cropStartY === cropEndY) {
+                if(cropResolveFn) cropResolveFn(cropImg.src); // Return full image if no crop box
+            } else {
+                const x = Math.min(cropStartX, cropEndX);
+                const y = Math.min(cropStartY, cropEndY);
+                const w = Math.abs(cropEndX - cropStartX);
+                const h = Math.abs(cropEndY - cropStartY);
+                
+                const resCanvas = document.createElement('canvas');
+                resCanvas.width = w;
+                resCanvas.height = h;
+                resCanvas.getContext('2d').drawImage(cropCanvas, x, y, w, h, 0, 0, w, h);
+                
+                if(cropResolveFn) cropResolveFn(resCanvas.toDataURL('image/png'));
+            }
+            closeCropOverlay();
+        });
+
+        function getCanvasMousePosition(evt) {
+            const rect = cropCanvas.getBoundingClientRect();
+            const scaleX = cropCanvas.width / rect.width;
+            const scaleY = cropCanvas.height / rect.height;
+            return {
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
+            };
+        }
+
+        cropCanvas.addEventListener('mousedown', e => {
+            const pos = getCanvasMousePosition(e);
+            cropStartX = pos.x;
+            cropStartY = pos.y;
+            cropEndX = cropStartX;
+            cropEndY = cropStartY;
+            isCropping = true;
+        });
+
+        cropCanvas.addEventListener('mousemove', e => {
+            if (!isCropping) return;
+            const pos = getCanvasMousePosition(e);
+            cropEndX = pos.x;
+            cropEndY = pos.y;
+            drawCropState();
+        });
+
+        cropCanvas.addEventListener('mouseup', () => { isCropping = false; });
+        cropCanvas.addEventListener('mouseleave', () => { isCropping = false; });
+
+        function drawCropState() {
+            cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+            cropCtx.drawImage(cropImg, 0, 0);
+            
+            if (cropStartX !== cropEndX && cropStartY !== cropEndY) {
+                cropCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+                
+                const x = Math.min(cropStartX, cropEndX);
+                const y = Math.min(cropStartY, cropEndY);
+                const w = Math.abs(cropEndX - cropStartX);
+                const h = Math.abs(cropEndY - cropStartY);
+                
+                cropCtx.clearRect(x, y, w, h);
+                cropCtx.drawImage(cropImg, x, y, w, h, x, y, w, h);
+                
+                cropCtx.strokeStyle = '#3b82f6';
+                cropCtx.lineWidth = Math.max(3, cropCanvas.width * 0.002);
+                cropCtx.strokeRect(x, y, w, h);
+            }
+        }
+
+
+        // --- Schedule Parser Logic ---
+        const scheduleInput = document.getElementById('scheduleInput');
+        const parseBtn = document.getElementById('parseBtn');
+        const scheduleOutput = document.getElementById('scheduleOutput');
+
+        function parseFormattedDate(dateStr) {
+            let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)/i);
+            if (!matches) return dateStr;
+            let day = parseInt(matches[1], 10);
+            let monthStr = matches[2].toLowerCase();
+            let monthMap = {
+                january:1, jan:1, february:2, feb:2, march:3, mar:3, april:4, apr:4, may:5,
+                june:6, jun:6, july:7, jul:7, august:8, aug:8, september:9, sep:9, october:10, oct:10,
+                november:11, nov:11, december:12, dec:12
+            };
+            let month = monthMap[monthStr] || 1;
+            let year = 2026; 
+            
+            return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+        }
+
+        function parseFormattedTime(timeStr) {
+            let times = timeStr.split(/[-to]+/).map(t => t.trim());
+            let formatted = times.map(t => {
+                let clean = t.toUpperCase().replace(/\s/g, '');
+                if (clean === '12NOON' || clean === 'NOON') return '12:00';
+                if (clean === '12MIDNIGHT' || clean === 'MIDNIGHT') return '00:00';
+                
+                let m = clean.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM)?$/);
+                if (!m) return t;
+                let hrs = parseInt(m[1], 10);
+                let mins = m[2] ? m[2] : '00';
+                let ampm = m[3];
+                
+                if (ampm === 'PM' && hrs < 12) hrs += 12;
+                if (ampm === 'AM' && hrs === 12) hrs = 0;
+                
+                return `${hrs.toString().padStart(2, '0')}:${mins}`;
+            });
+            return formatted.join('-');
+        }
+
+        function parseSchedule(input) {
+            // Regex to find dates like "15TH JUNE", "1 JUNE"
+            const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/gi;
+            
+            let matches = [...input.matchAll(dateRegex)];
+            if (matches.length === 0) return [];
+
+            let results = [];
+
+            for (let i = 0; i < matches.length; i++) {
+                let currentDate = matches[i][0];
+                let startIdx = matches[i].index + currentDate.length;
+                let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
+
+                let timesStr = input.substring(startIdx, endIdx);
+
+                // Clean up the times string: remove 'FROM', split by commas
+                timesStr = timesStr.replace(/FROM/gi, '').trim();
+                
+                let times = timesStr.split(/,| and | & /i).map(t => t.trim()).filter(t => t.length > 0);
+
+                times.forEach(time => {
+                    let cleanTime = time.replace(/[;:.]$/, '').trim();
+                    if (cleanTime) {
+                        let formattedDate = parseFormattedDate(currentDate);
+                        let formattedTime = parseFormattedTime(cleanTime);
+                        results.push(`${formattedDate} ${formattedTime}`);
+                    }
+                });
+            }
+            return results;
+        }
+
+        parseBtn.addEventListener('click', () => {
+            const text = scheduleInput.value;
+            const parsedItems = parseSchedule(text);
+            
+            scheduleOutput.innerHTML = ''; 
+            
+            if (parsedItems.length === 0) {
+                scheduleOutput.innerHTML = '<p class="text-sm text-slate-500 italic">No dates/times found. Please check your formatting.</p>';
+                return;
+            }
+
+            parsedItems.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg animate-fade-in';
+                
+                // Top Text + Actions Bar
+                const topBar = document.createElement('div');
+                topBar.className = 'flex flex-wrap items-center justify-between gap-4';
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'font-bold text-lg text-slate-800 dark:text-slate-100 break-words tracking-tight';
+                textSpan.textContent = item;
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'flex gap-2 items-center';
+
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap';
+                copyBtn.textContent = 'Copy Text';
+                
+                copyBtn.addEventListener('click', () => {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = item;
+                    textArea.style.position = "absolute";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand("copy");
+                    textArea.remove();
+                    
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.classList.add('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy';
+                        copyBtn.classList.remove('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
+                    }, 2000);
+                });
+
+                const captureMapBtn = document.createElement('button');
+                captureMapBtn.className = 'px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border border-transparent rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap flex items-center gap-2 shadow-sm';
+                captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
+
+                actionsDiv.appendChild(copyBtn);
+                actionsDiv.appendChild(captureMapBtn);
+                
+                topBar.appendChild(textSpan);
+                topBar.appendChild(actionsDiv);
+                row.appendChild(topBar);
+
+                // Image Section (Hidden initially)
+                const imageSection = document.createElement('div');
+                imageSection.className = 'hidden flex-col items-start gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600';
+                
+                const imgPreview = document.createElement('img');
+                imgPreview.className = 'max-w-full h-auto max-h-[250px] object-contain rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm';
+                
+                const downloadImgBtn = document.createElement('button');
+                downloadImgBtn.className = 'flex items-center gap-1.5 text-sm px-4 py-1.5 bg-slate-200 dark:bg-slate-600 rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 font-medium text-slate-800 dark:text-slate-100 transition-colors';
+                downloadImgBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Map`;
+                
+                imageSection.appendChild(imgPreview);
+                imageSection.appendChild(downloadImgBtn);
+                row.appendChild(imageSection);
+
+                // Map capture interaction
+                captureMapBtn.addEventListener('click', async () => {
+                    try {
+                        captureMapBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Capturing...`;
+                        captureMapBtn.disabled = true;
+                        
+                        const fullScreenshot = await getScreenCaptureDataUrl();
+                        const croppedScreenshot = await openCropOverlay(fullScreenshot);
+                        
+                        if (croppedScreenshot) {
+                            imgPreview.src = croppedScreenshot;
+                            imageSection.classList.remove('hidden');
+                            imageSection.classList.add('flex');
+                            captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
+                            
+                            downloadImgBtn.onclick = () => {
+                                const a = document.createElement('a');
+                                a.href = croppedScreenshot;
+                                // Clean filename using date string
+                                a.download = `Map-${item.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+                                a.click();
+                            };
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        if (err.message && err.message.includes('permissions policy')) {
+                            showMessage("Capture blocked: Please run this file locally.", true);
+                        }
+                    } finally {
+                        captureMapBtn.disabled = false;
+                        if(!imgPreview.src) {
+                            captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
+                        }
+                    }
+                });
+
+                scheduleOutput.appendChild(row);
+            });
+        });
 
     </script>
 </body>
