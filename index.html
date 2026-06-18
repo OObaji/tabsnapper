@@ -86,7 +86,7 @@
                     </button>
                     
                     <button id="changeTabBtn" class="hidden px-5 py-3 font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors shadow-sm">
-                        Stop Sharing
+                        Change Target Tab
                     </button>
                 </div>
 
@@ -95,7 +95,7 @@
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                     </span>
-                    Live Capture Session Active
+                    Connected to Target Tab
                 </div>
 
                 <!-- Status Message -->
@@ -355,7 +355,6 @@
             if (!activeVideoStream || !activeVideoStream.active) {
                 const stream = await navigator.mediaDevices.getDisplayMedia({
                     video: { displaySurface: "browser" },
-                    preferCurrentTab: true,
                     audio: false
                 });
 
