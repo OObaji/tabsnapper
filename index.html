@@ -44,7 +44,7 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen font-sans transition-colors duration-300">
 
-    <div class="max-w-7xl mx-auto p-4 md:p-6 flex flex-col min-h-screen">
+    <div class="max-w-[1400px] mx-auto p-4 md:p-6 flex flex-col min-h-screen">
         
         <!-- Header -->
         <header class="mb-8 text-center pt-8">
@@ -134,7 +134,7 @@
             </div> <!-- End of viewScreenshot -->
             
             <!-- VIEW: SCHEDULE PARSER & EMAILS -->
-            <div id="viewParser" class="hidden w-full max-w-6xl animate-fade-in">
+            <div id="viewParser" class="hidden w-full max-w-7xl animate-fade-in">
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     
                     <!-- Left Column: Input & Results -->
@@ -190,12 +190,26 @@
 
                     <!-- Right Column: Parsed Time Frames Workspace -->
                     <div class="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 min-h-[400px] flex flex-col">
-                        <div class="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-700 pb-4">
-                            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        
+                        <!-- Header with Stats -->
+                        <div class="flex flex-col mb-4 border-b border-slate-100 dark:border-slate-700 pb-4">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-3">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                 Parsed Time Frames
                             </h3>
-                            <span id="parsedCount" class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2.5 py-1 rounded-full hidden">0 items</span>
+                            
+                            <!-- Tracking Stats Banner -->
+                            <div id="parserStats" class="hidden flex flex-wrap gap-2 text-xs font-bold items-center">
+                                <span id="reqMapsBadge" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent">0 Maps Required</span>
+                                <span id="genMapsBadge" class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">0 Generated</span>
+                                <span id="totalHoursBadge" class="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">0 Total Hours</span>
+                            </div>
+                            
+                            <!-- 28 Limit Warning Banner -->
+                            <div id="limitWarning" class="hidden mt-3 text-sm font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 px-3 py-2 rounded-md flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                Warning: Maximum limit of 28 maps exceeded! Please reduce your request.
+                            </div>
                         </div>
                         
                         <div id="scheduleOutput" class="flex flex-col gap-3 flex-grow overflow-y-auto pr-2 custom-scrollbar">
@@ -257,6 +271,32 @@
 
         let currentImageURL = null;
 
+        // --- Tab Switching Logic ---
+        function switchTab(tab) {
+            if (tab === 'screenshot') {
+                navTabScreenshot.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+                navTabScreenshot.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+                
+                navTabParser.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+                navTabParser.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+
+                viewScreenshot.classList.remove('hidden');
+                viewParser.classList.add('hidden');
+            } else {
+                navTabParser.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+                navTabParser.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+                
+                navTabScreenshot.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+                navTabScreenshot.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+
+                viewParser.classList.remove('hidden');
+                viewScreenshot.classList.add('hidden');
+            }
+        }
+
+        navTabScreenshot.addEventListener('click', () => switchTab('screenshot'));
+        navTabParser.addEventListener('click', () => switchTab('parser'));
+
         // Show toast/status message
         function showMessage(msg, isError = false) {
             statusMessage.textContent = msg;
@@ -266,17 +306,12 @@
                 : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800'
             } block animate-fade-in`;
             
-            // Auto hide after 5 seconds if it's an error
             if (isError) {
-                setTimeout(() => {
-                    statusMessage.classList.add('hidden');
-                }, 5000);
+                setTimeout(() => { statusMessage.classList.add('hidden'); }, 5000);
             }
         }
 
-        function hideMessage() {
-            statusMessage.classList.add('hidden');
-        }
+        function hideMessage() { statusMessage.classList.add('hidden'); }
 
         // --- Core Screen Capture Utility ---
         async function getScreenCaptureDataUrl() {
@@ -312,11 +347,9 @@
             });
         }
 
-        // The core capture logic (Updated to use utility)
         async function captureScreen() {
             hideMessage();
             try {
-                // Show loading indicator
                 emptyState.classList.add('hidden');
                 previewImage.classList.add('hidden');
                 actionButtons.classList.add('hidden');
@@ -326,13 +359,11 @@
 
                 currentImageURL = await getScreenCaptureDataUrl();
 
-                // Display the result
                 previewImage.src = currentImageURL;
                 loadingState.classList.add('hidden');
                 previewImage.classList.remove('hidden');
                 actionButtons.classList.remove('hidden');
                 captureBtn.classList.add('hidden'); 
-                
                 previewContainer.classList.add('border-transparent');
                 previewContainer.classList.remove('border-dashed', 'border-slate-300', 'bg-gray-100');
 
@@ -344,7 +375,7 @@
                 captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 
                 if (error.message && error.message.includes('permissions policy')) {
-                    showMessage("Capture blocked: This preview environment restricts screen recording. Please save this code as an .html file and open it locally in your browser to use it.", true);
+                    showMessage("Capture blocked: Run this file locally to enable.", true);
                 } else if (error.name !== 'NotAllowedError') {
                     showMessage("Failed to capture: " + error.message, true);
                 } else {
@@ -354,13 +385,10 @@
             }
         }
 
-        // Download the current screenshot
         function downloadScreenshot() {
             if (!currentImageURL) return;
-            
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const filename = `screenshot-${timestamp}.png`;
-            
             const a = document.createElement('a');
             a.href = currentImageURL;
             a.download = filename;
@@ -369,7 +397,6 @@
             document.body.removeChild(a);
         }
 
-        // Reset the UI to take another screenshot
         function resetCapture() {
             currentImageURL = null;
             previewImage.src = "";
@@ -379,42 +406,14 @@
             captureBtn.classList.remove('hidden');
             captureBtn.disabled = false;
             captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            
             previewContainer.classList.remove('border-transparent');
             previewContainer.classList.add('border-dashed', 'border-slate-300', 'bg-gray-100');
             hideMessage();
         }
 
-        // Event Listeners
         captureBtn.addEventListener('click', captureScreen);
         downloadBtn.addEventListener('click', downloadScreenshot);
         newCaptureBtn.addEventListener('click', resetCapture);
-
-        // --- Tab Switching Logic ---
-        function switchTab(tab) {
-            if (tab === 'screenshot') {
-                navTabScreenshot.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabScreenshot.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-                
-                navTabParser.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabParser.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-
-                viewScreenshot.classList.remove('hidden');
-                viewParser.classList.add('hidden');
-            } else {
-                navTabParser.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabParser.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-                
-                navTabScreenshot.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabScreenshot.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-
-                viewParser.classList.remove('hidden');
-                viewScreenshot.classList.add('hidden');
-            }
-        }
-
-        navTabScreenshot.addEventListener('click', () => switchTab('screenshot'));
-        navTabParser.addEventListener('click', () => switchTab('parser'));
 
         // --- Crop Overlay Logic ---
         const cropOverlay = document.getElementById('cropOverlay');
@@ -455,7 +454,7 @@
 
         cropConfirmBtn.addEventListener('click', () => {
             if (cropStartX === cropEndX || cropStartY === cropEndY) {
-                if(cropResolveFn) cropResolveFn(cropImg.src); // Return full image if no crop box
+                if(cropResolveFn) cropResolveFn(cropImg.src);
             } else {
                 const x = Math.min(cropStartX, cropEndX);
                 const y = Math.min(cropStartY, cropEndY);
@@ -529,13 +528,49 @@
         const scheduleInput = document.getElementById('scheduleInput');
         const parseBtn = document.getElementById('parseBtn');
         const scheduleOutput = document.getElementById('scheduleOutput');
-        const parsedCount = document.getElementById('parsedCount');
+        
+        // Stats elements
+        const parserStats = document.getElementById('parserStats');
+        const reqMapsBadge = document.getElementById('reqMapsBadge');
+        const genMapsBadge = document.getElementById('genMapsBadge');
+        const totalHoursBadge = document.getElementById('totalHoursBadge');
+        const limitWarning = document.getElementById('limitWarning');
+
         const bulkOutputContainer = document.getElementById('bulkOutputContainer');
         const bulkOutputText = document.getElementById('bulkOutputText');
         const copyBulkBtn = document.getElementById('copyBulkBtn');
         const emailTemplateContainer = document.getElementById('emailTemplateContainer');
         const emailOutputText = document.getElementById('emailOutputText');
         const copyEmailBtn = document.getElementById('copyEmailBtn');
+
+        // State trackers
+        let generatedMapIndices = new Set();
+        let currentTotalMaps = 0;
+        let currentTotalHours = 0;
+
+        function updateStatsUI() {
+            parserStats.classList.remove('hidden');
+            genMapsBadge.textContent = `${generatedMapIndices.size} Generated`;
+            reqMapsBadge.textContent = `${currentTotalMaps} Maps Required`;
+            totalHoursBadge.textContent = `${currentTotalHours.toFixed(1)} Total Hours`;
+
+            if (currentTotalMaps > 28) {
+                reqMapsBadge.className = 'px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400 transition-colors border border-red-200 dark:border-red-800';
+                limitWarning.classList.remove('hidden');
+            } else {
+                reqMapsBadge.className = 'px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent';
+                limitWarning.classList.add('hidden');
+            }
+        }
+
+        function getHoursDiff(start, end) {
+            if (!start || !end) return 0;
+            const [sH, sM] = start.split(':').map(Number);
+            const [eH, eM] = end.split(':').map(Number);
+            let diff = (eH + eM/60) - (sH + sM/60);
+            if (diff < 0) diff += 24; // Handle overnight
+            return parseFloat(diff.toFixed(2));
+        }
 
         function parseFormattedDate(dateStr) {
             let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)/i);
@@ -549,15 +584,11 @@
             };
             let month = monthMap[monthStr] || 1;
             let year = 2026; 
-            
             return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
         }
 
-        // Now returns an array of formatted times instead of a combined string
         function parseFormattedTime(timeStr) {
-            // Split strictly by hyphens or the word "to" surrounded by space
             let times = timeStr.split(/\s*-\s*|\s+to\s+/i).map(t => t.trim());
-            
             let formatted = times.map(t => {
                 let clean = t.toUpperCase().replace(/\s/g, '');
                 if (clean === '12NOON' || clean === 'NOON') return '12:00';
@@ -574,28 +605,22 @@
                 
                 return `${hrs.toString().padStart(2, '0')}:${mins}`;
             });
-            return formatted; // Return the array of times
+            return formatted; 
         }
 
         function parseSchedule(input) {
-            // Regex to find dates like "15TH JUNE", "1 JUNE"
             const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/gi;
-            
             let matches = [...input.matchAll(dateRegex)];
             if (matches.length === 0) return [];
 
             let results = [];
-
             for (let i = 0; i < matches.length; i++) {
                 let currentDate = matches[i][0];
                 let startIdx = matches[i].index + currentDate.length;
                 let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
-
                 let timesStr = input.substring(startIdx, endIdx);
 
-                // Clean up the times string: remove 'FROM', split by commas
                 timesStr = timesStr.replace(/FROM/gi, '').trim();
-                
                 let times = timesStr.split(/,| and | & /i).map(t => t.trim()).filter(t => t.length > 0);
 
                 times.forEach(time => {
@@ -604,11 +629,15 @@
                         let formattedDate = parseFormattedDate(currentDate);
                         let formattedTimesArray = parseFormattedTime(cleanTime);
                         
-                        // Group the start and end times together in an object
+                        let start = formattedTimesArray[0];
+                        let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
+                        let hours = getHoursDiff(start, end);
+
                         results.push({
                             date: formattedDate,
-                            start: formattedTimesArray[0],
-                            end: formattedTimesArray.length > 1 ? formattedTimesArray[1] : null
+                            start: start,
+                            end: end,
+                            hours: hours
                         });
                     }
                 });
@@ -623,9 +652,15 @@
             scheduleOutput.innerHTML = ''; 
             bulkOutputContainer.classList.add('hidden');
             emailTemplateContainer.classList.add('hidden');
+            parserStats.classList.add('hidden');
+            limitWarning.classList.add('hidden');
+            
+            // Reset Stats
+            generatedMapIndices.clear();
+            currentTotalMaps = 0;
+            currentTotalHours = 0;
             
             if (parsedItems.length === 0) {
-                parsedCount.classList.add('hidden');
                 scheduleOutput.innerHTML = `
                     <div class="h-full flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500 flex-grow">
                         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-red-400 opacity-50"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -634,9 +669,10 @@
                 return;
             }
 
-            // Update Count Badge
-            parsedCount.textContent = `${parsedItems.length} item${parsedItems.length !== 1 ? 's' : ''}`;
-            parsedCount.classList.remove('hidden');
+            // Calculate overall stats
+            currentTotalMaps = parsedItems.length;
+            currentTotalHours = parsedItems.reduce((sum, item) => sum + item.hours, 0);
+            updateStatsUI();
 
             // --- Generate Bulk Text List ---
             const bulkLines = parsedItems.map(item => {
@@ -655,7 +691,7 @@
             emailOutputText.value = emailTemplate;
             emailTemplateContainer.classList.remove('hidden');
 
-            parsedItems.forEach(item => {
+            parsedItems.forEach((item, index) => {
                 const row = document.createElement('div');
                 row.className = 'flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg animate-fade-in';
                 
@@ -663,18 +699,22 @@
                 const endFull = item.end ? `${item.date} ${item.end}` : null;
                 const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
 
+                // Hour interval badge UI
+                const intervalBadge = item.hours > 0 
+                    ? `<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 text-xs font-bold rounded-full ml-2 border border-indigo-200 dark:border-indigo-800">${item.hours} hr interval</span>`
+                    : '';
+
                 // Top Text + Actions Bar
                 const topBar = document.createElement('div');
                 topBar.className = 'flex flex-wrap items-center justify-between gap-4';
 
                 const textSpan = document.createElement('span');
-                textSpan.className = 'font-bold text-lg text-slate-800 dark:text-slate-100 break-words tracking-tight';
-                textSpan.textContent = displayText;
+                textSpan.className = 'font-bold text-lg text-slate-800 dark:text-slate-100 break-words tracking-tight flex items-center flex-wrap gap-y-1';
+                textSpan.innerHTML = `${displayText} ${intervalBadge}`;
                 
                 const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'flex gap-2 items-center';
+                actionsDiv.className = 'flex flex-wrap gap-2 items-center';
 
-                // Helper to create copy buttons
                 function createCopyBtn(label, textToCopy) {
                     const btn = document.createElement('button');
                     btn.className = 'px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap';
@@ -700,7 +740,6 @@
                     return btn;
                 }
 
-                // Add Start and End Copy Buttons
                 actionsDiv.appendChild(createCopyBtn('Copy Start', startFull));
                 if (endFull) {
                     actionsDiv.appendChild(createCopyBtn('Copy End', endFull));
@@ -711,7 +750,6 @@
                 captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
 
                 actionsDiv.appendChild(captureMapBtn);
-                
                 topBar.appendChild(textSpan);
                 topBar.appendChild(actionsDiv);
                 row.appendChild(topBar);
@@ -746,10 +784,13 @@
                             imageSection.classList.add('flex');
                             captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
                             
+                            // Update Generated Map Stats
+                            generatedMapIndices.add(index);
+                            updateStatsUI();
+                            
                             downloadImgBtn.onclick = () => {
                                 const a = document.createElement('a');
                                 a.href = croppedScreenshot;
-                                // Clean filename using date string
                                 a.download = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
                                 a.click();
                             };
@@ -757,7 +798,7 @@
                     } catch (err) {
                         console.error(err);
                         if (err.message && err.message.includes('permissions policy')) {
-                            showMessage("Capture blocked: Please run this file locally.", true);
+                            alert("Capture blocked: Run locally.");
                         }
                     } finally {
                         captureMapBtn.disabled = false;
