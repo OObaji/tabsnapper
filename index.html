@@ -74,14 +74,29 @@
             
             <!-- VIEW: SCREENSHOT TOOL -->
             <div id="viewScreenshot" class="w-full flex flex-col items-center max-w-4xl animate-fade-in">
-                <button id="captureBtn" class="group relative inline-flex items-center justify-center gap-2 px-8 py-4 font-bold text-white bg-blue-600 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 mb-8">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:scale-110 transition-transform">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                    </svg>
-                    Select Tab to Capture
-                </button>
+                
+                <div class="flex flex-wrap items-center justify-center gap-4 mb-4">
+                    <button id="captureBtn" class="group relative inline-flex items-center justify-center gap-2 px-8 py-4 font-bold text-white bg-blue-600 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:scale-110 transition-transform">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                        <span id="captureBtnLabel">Select Tab to Capture</span>
+                    </button>
+                    
+                    <button id="changeTabBtn" class="hidden px-5 py-3 font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors shadow-sm">
+                        Stop Sharing
+                    </button>
+                </div>
+
+                <div id="sessionBadge" class="hidden items-center gap-2 mb-6 px-3 py-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-800 animate-fade-in">
+                    <span class="relative flex h-2.5 w-2.5">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    Live Capture Session Active
+                </div>
 
                 <!-- Status Message -->
                 <div id="statusMessage" class="hidden px-4 py-3 rounded-lg mb-6 text-sm font-medium transition-all w-full max-w-2xl text-center"></div>
@@ -267,6 +282,10 @@
         const viewParser = document.getElementById('viewParser');
 
         const captureBtn = document.getElementById('captureBtn');
+        const captureBtnLabel = document.getElementById('captureBtnLabel');
+        const changeTabBtn = document.getElementById('changeTabBtn');
+        const sessionBadge = document.getElementById('sessionBadge');
+        
         const previewContainer = document.getElementById('previewContainer');
         const emptyState = document.getElementById('emptyState');
         const loadingState = document.getElementById('loadingState');
@@ -277,32 +296,31 @@
         const statusMessage = document.getElementById('statusMessage');
 
         let currentImageURL = null;
+        let activeVideoStream = null;
+        let activeVideoElement = null;
 
         // --- Tab Switching Logic ---
-        function switchTab(tab) {
-            if (tab === 'screenshot') {
-                navTabScreenshot.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabScreenshot.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-                
-                navTabParser.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabParser.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+        navTabScreenshot.addEventListener('click', () => {
+            navTabScreenshot.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+            navTabScreenshot.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+            
+            navTabParser.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+            navTabParser.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
 
-                viewScreenshot.classList.remove('hidden');
-                viewParser.classList.add('hidden');
-            } else {
-                navTabParser.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabParser.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-                
-                navTabScreenshot.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-                navTabScreenshot.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+            viewScreenshot.classList.remove('hidden');
+            viewParser.classList.add('hidden');
+        });
 
-                viewParser.classList.remove('hidden');
-                viewScreenshot.classList.add('hidden');
-            }
-        }
+        navTabParser.addEventListener('click', () => {
+            navTabParser.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+            navTabParser.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+            
+            navTabScreenshot.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+            navTabScreenshot.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
 
-        navTabScreenshot.addEventListener('click', () => switchTab('screenshot'));
-        navTabParser.addEventListener('click', () => switchTab('parser'));
+            viewParser.classList.remove('hidden');
+            viewScreenshot.classList.add('hidden');
+        });
 
         // Show toast/status message
         function showMessage(msg, isError = false) {
@@ -311,49 +329,94 @@
                 isError 
                 ? 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800' 
                 : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800'
-            } block animate-fade-in`;
+            } block animate-fade-in w-full max-w-2xl text-center`;
+            statusMessage.classList.remove('hidden');
             
+            // Auto hide after 5 seconds if it's an error
             if (isError) {
-                setTimeout(() => { statusMessage.classList.add('hidden'); }, 5000);
+                setTimeout(() => {
+                    statusMessage.classList.add('hidden');
+                }, 5000);
             }
         }
 
-        function hideMessage() { statusMessage.classList.add('hidden'); }
+        function hideMessage() {
+            statusMessage.classList.add('hidden');
+        }
 
         // --- Core Screen Capture Utility ---
         async function getScreenCaptureDataUrl() {
-            const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: { displaySurface: "browser" },
-                audio: false
-            });
+            if (!activeVideoStream || !activeVideoStream.active) {
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { displaySurface: "browser" },
+                    preferCurrentTab: true,
+                    audio: false
+                });
 
-            return new Promise((resolve, reject) => {
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                video.autoplay = true;
-                video.muted = true;
+                activeVideoStream = stream;
+                
+                // Handle user stopping share natively
+                activeVideoStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    stopActiveStream();
+                });
 
-                video.onloadedmetadata = () => {
-                    video.play().then(() => {
-                        setTimeout(() => {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            const dataUrl = canvas.toDataURL('image/png');
-                            
-                            stream.getTracks().forEach(track => track.stop());
-                            resolve(dataUrl);
-                        }, 500); 
-                    }).catch(err => {
-                        stream.getTracks().forEach(track => track.stop());
-                        reject(new Error("Failed to play video stream: " + err.message));
-                    });
-                };
-            });
+                activeVideoElement = document.createElement('video');
+                activeVideoElement.srcObject = activeVideoStream;
+                activeVideoElement.autoplay = true;
+                activeVideoElement.muted = true;
+
+                await new Promise((resolve, reject) => {
+                    activeVideoElement.onloadedmetadata = () => {
+                        activeVideoElement.play().then(() => {
+                            setTimeout(resolve, 300); 
+                        }).catch(reject);
+                    };
+                });
+                
+                updateSessionUI(true);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = activeVideoElement.videoWidth;
+            canvas.height = activeVideoElement.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(activeVideoElement, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/png');
         }
 
+        function stopActiveStream() {
+            if (activeVideoStream) {
+                activeVideoStream.getTracks().forEach(track => track.stop());
+                activeVideoStream = null;
+            }
+            if (activeVideoElement) {
+                activeVideoElement.pause();
+                activeVideoElement.srcObject = null;
+            }
+            updateSessionUI(false);
+        }
+
+        function updateSessionUI(isActive) {
+            if (isActive) {
+                captureBtnLabel.textContent = "Instant Capture";
+                sessionBadge.classList.remove('hidden');
+                sessionBadge.classList.add('flex');
+                changeTabBtn.classList.remove('hidden');
+                captureBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                captureBtn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+            } else {
+                captureBtnLabel.textContent = "Select Tab to Capture";
+                sessionBadge.classList.add('hidden');
+                sessionBadge.classList.remove('flex');
+                changeTabBtn.classList.add('hidden');
+                captureBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+                captureBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+            }
+        }
+
+        changeTabBtn.addEventListener('click', stopActiveStream);
+
+        // The core capture logic (Updated to use utility)
         async function captureScreen() {
             hideMessage();
             try {
