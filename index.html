@@ -216,15 +216,18 @@
                         
                         <!-- Header with Stats -->
                         <div class="flex flex-col mb-4 border-b border-slate-100 dark:border-slate-700 pb-4">
-                            <div class="flex items-center justify-between mb-3">
+                            <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
                                 <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                     Parsed Time Frames
                                 </h3>
-                                <div class="flex gap-2">
+                                <div class="flex flex-wrap gap-2">
+                                    <button id="toggleViewBtn" class="hidden items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/70 rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        🎯 Focus Mode
+                                    </button>
                                     <button id="copyAllMapsBtn" class="hidden items-center gap-2 px-4 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        Copy Maps to Clipboard
+                                        Copy All Maps to Clipboard
                                     </button>
                                     <button id="downloadAllBtn" class="hidden items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -244,6 +247,38 @@
                             <div id="limitWarning" class="hidden mt-3 text-sm font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 px-3 py-2 rounded-md flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                                 Warning: Maximum limit of 28 maps exceeded! Please reduce your request.
+                            </div>
+                        </div>
+
+                        <!-- Focus Mode Container (Hidden by Default) -->
+                        <div id="focusModeContainer" class="hidden flex-col items-center justify-center py-6 flex-grow w-full animate-fade-in">
+                            <div class="w-full max-w-lg bg-slate-50 dark:bg-slate-800/80 border border-blue-200 dark:border-blue-800/50 rounded-3xl p-6 shadow-md flex flex-col items-center relative overflow-hidden">
+                                <div class="absolute top-0 left-0 h-1.5 bg-blue-500 transition-all duration-300" id="fmProgressBar" style="width: 0%;"></div>
+
+                                <div class="text-xs font-bold text-slate-400 dark:text-slate-500 mb-3 tracking-widest uppercase mt-2">
+                                    Step <span id="fmStep" class="text-blue-600 dark:text-blue-400">1</span> of <span id="fmTotal">28</span>
+                                </div>
+
+                                <h2 id="fmDisplayText" class="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 mb-6 text-center leading-tight">
+                                    10/06/2026 <br> <span class="text-blue-600 dark:text-blue-400">00:00 - 06:00</span>
+                                </h2>
+
+                                <div class="flex gap-3 w-full mb-3">
+                                    <button id="fmCopyStartBtn" class="flex-1 py-3 bg-white hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-base font-bold text-slate-700 dark:text-slate-200 transition-all border border-slate-200 dark:border-slate-600 shadow-sm">Copy Start</button>
+                                    <button id="fmCopyEndBtn" class="flex-1 py-3 bg-white hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-base font-bold text-slate-700 dark:text-slate-200 transition-all border border-slate-200 dark:border-slate-600 shadow-sm">Copy End</button>
+                                </div>
+
+                                <button id="fmCopyBothBtn" class="text-xs text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 mb-6 font-medium underline cursor-pointer transition-colors">⚡ Tip: Click to Copy Both (Tab-Separated)</button>
+
+                                <button id="fmCaptureBtn" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-lg font-bold shadow-md shadow-blue-500/20 transition-all flex justify-center items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                                    Capture & Advance
+                                </button>
+
+                                <div class="flex justify-between w-full mt-6 pt-4 border-t border-slate-200 dark:border-slate-700/50">
+                                    <button id="fmPrevBtn" class="text-sm font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">← Previous</button>
+                                    <button id="fmSkipBtn" class="text-sm font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">Skip →</button>
+                                </div>
                             </div>
                         </div>
                         
@@ -660,6 +695,31 @@
         let currentTotalHours = 0;
         let capturedMapsData = {};
 
+        // Focus Mode Global States
+        let globalParsedItems = [];
+        let isFocusMode = false;
+        let fmCurrentIndex = 0;
+
+        // Toggle Focus Mode
+        const toggleViewBtn = document.getElementById('toggleViewBtn');
+        const focusModeContainer = document.getElementById('focusModeContainer');
+        
+        toggleViewBtn.addEventListener('click', () => {
+            isFocusMode = !isFocusMode;
+            if (isFocusMode) {
+                toggleViewBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> List View';
+                scheduleOutput.classList.add('hidden');
+                focusModeContainer.classList.remove('hidden');
+                focusModeContainer.classList.add('flex');
+                updateFocusModeUI();
+            } else {
+                toggleViewBtn.innerHTML = '🎯 Focus Mode';
+                scheduleOutput.classList.remove('hidden');
+                focusModeContainer.classList.add('hidden');
+                focusModeContainer.classList.remove('flex');
+            }
+        });
+
         function updateStatsUI() {
             parserStats.classList.remove('hidden');
             genMapsBadge.textContent = `${generatedMapIndices.size} Generated`;
@@ -886,6 +946,10 @@
             const text = scheduleInput.value;
             const parsedItems = parseSchedule(text);
             
+            // Set globals
+            globalParsedItems = parsedItems;
+            fmCurrentIndex = 0;
+            
             scheduleOutput.innerHTML = ''; 
             bulkOutputContainer.classList.add('hidden');
             emailTemplateContainer.classList.add('hidden');
@@ -903,6 +967,8 @@
             copyAllMapsBtn.classList.remove('flex');
             
             if (parsedItems.length === 0) {
+                toggleViewBtn.classList.add('hidden');
+                toggleViewBtn.classList.remove('flex');
                 scheduleOutput.innerHTML = `
                     <div class="h-full flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500 flex-grow">
                         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-red-400 opacity-50"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -910,6 +976,10 @@
                     </div>`;
                 return;
             }
+
+            // Show Focus Mode Button
+            toggleViewBtn.classList.remove('hidden');
+            toggleViewBtn.classList.add('flex');
 
             // Calculate overall stats
             currentTotalMaps = parsedItems.length;
@@ -933,8 +1003,10 @@
             emailOutputText.value = emailTemplate;
             emailTemplateContainer.classList.remove('hidden');
 
+            // Render List View Rows
             parsedItems.forEach((item, index) => {
                 const row = document.createElement('div');
+                row.id = `row-${index}`; // Set ID for Focus Mode syncing
                 row.className = 'flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg animate-fade-in';
                 
                 const startFull = `${item.date} ${item.start}`;
@@ -988,6 +1060,7 @@
                 }
 
                 const captureMapBtn = document.createElement('button');
+                captureMapBtn.id = `capture-btn-${index}`; // Set ID for Focus Mode syncing
                 captureMapBtn.className = 'px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border border-transparent rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap flex items-center gap-2 shadow-sm';
                 captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
 
@@ -998,13 +1071,13 @@
 
                 // Image Section (Hidden initially)
                 const imageSection = document.createElement('div');
-                imageSection.className = 'hidden flex-col items-start gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600';
+                imageSection.className = 'map-image-section hidden flex-col items-start gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600';
                 
                 const imgPreview = document.createElement('img');
-                imgPreview.className = 'max-w-full h-auto max-h-[250px] object-contain rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm';
+                imgPreview.className = 'map-preview-img max-w-full h-auto max-h-[250px] object-contain rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm';
                 
                 const downloadImgBtn = document.createElement('button');
-                downloadImgBtn.className = 'flex items-center gap-1.5 text-sm px-4 py-1.5 bg-slate-200 dark:bg-slate-600 rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 font-medium text-slate-800 dark:text-slate-100 transition-colors';
+                downloadImgBtn.className = 'map-download-btn flex items-center gap-1.5 text-sm px-4 py-1.5 bg-slate-200 dark:bg-slate-600 rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 font-medium text-slate-800 dark:text-slate-100 transition-colors';
                 downloadImgBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Map`;
                 
                 imageSection.appendChild(imgPreview);
@@ -1062,7 +1135,160 @@
 
                 scheduleOutput.appendChild(row);
             });
+            
+            // Initialize Focus Mode behind the scenes
+            if(isFocusMode) updateFocusModeUI();
         });
+
+        // --- Focus Mode Core Logic ---
+        const fmStep = document.getElementById('fmStep');
+        const fmTotal = document.getElementById('fmTotal');
+        const fmDisplayText = document.getElementById('fmDisplayText');
+        const fmCopyStartBtn = document.getElementById('fmCopyStartBtn');
+        const fmCopyEndBtn = document.getElementById('fmCopyEndBtn');
+        const fmCopyBothBtn = document.getElementById('fmCopyBothBtn');
+        const fmCaptureBtn = document.getElementById('fmCaptureBtn');
+        const fmPrevBtn = document.getElementById('fmPrevBtn');
+        const fmSkipBtn = document.getElementById('fmSkipBtn');
+        const fmProgressBar = document.getElementById('fmProgressBar');
+
+        function updateFocusModeUI() {
+            if (globalParsedItems.length === 0) return;
+            
+            if (fmCurrentIndex >= globalParsedItems.length) {
+                fmDisplayText.innerHTML = "🎉 All Maps Captured!";
+                fmCopyStartBtn.style.display = 'none';
+                fmCopyEndBtn.style.display = 'none';
+                fmCopyBothBtn.style.display = 'none';
+                fmCaptureBtn.style.display = 'none';
+                fmStep.textContent = globalParsedItems.length;
+                fmProgressBar.style.width = '100%';
+                return;
+            }
+
+            const item = globalParsedItems[fmCurrentIndex];
+            const startFull = `${item.date} ${item.start}`;
+            const endFull = item.end ? `${item.date} ${item.end}` : null;
+            const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+
+            fmStep.textContent = fmCurrentIndex + 1;
+            fmTotal.textContent = globalParsedItems.length;
+            // Progress bar
+            fmProgressBar.style.width = `${((fmCurrentIndex) / globalParsedItems.length) * 100}%`;
+
+            fmDisplayText.innerHTML = `${item.date} <br> <span class="text-blue-600 dark:text-blue-400">${item.start}${item.end ? ' - ' + item.end : ''}</span>`;
+
+            fmCopyStartBtn.style.display = 'block';
+            fmCopyEndBtn.style.display = item.end ? 'block' : 'none';
+            fmCopyBothBtn.style.display = item.end ? 'block' : 'none';
+            fmCaptureBtn.style.display = 'flex';
+
+            // Check if map is already captured
+            if (generatedMapIndices.has(fmCurrentIndex)) {
+                fmCaptureBtn.innerHTML = `✅ Map Captured (Retake)`;
+                fmCaptureBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                fmCaptureBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-500');
+            } else {
+                fmCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Capture & Advance`;
+                fmCaptureBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+                fmCaptureBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
+            }
+
+            fmPrevBtn.disabled = fmCurrentIndex === 0;
+            fmSkipBtn.disabled = fmCurrentIndex === globalParsedItems.length - 1;
+
+            // Setup copy events
+            fmCopyStartBtn.onclick = () => doFocusCopy(fmCopyStartBtn, startFull, 'Copy Start');
+            fmCopyEndBtn.onclick = () => doFocusCopy(fmCopyEndBtn, endFull, 'Copy End');
+            fmCopyBothBtn.onclick = () => {
+                const combined = `${startFull}\t${endFull}`;
+                doFocusCopy(fmCopyBothBtn, combined, '⚡ Tip: Click to Copy Both (Tab-Separated)');
+            };
+        }
+
+        function doFocusCopy(btn, text, originalText) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "absolute";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            textArea.remove();
+
+            btn.textContent = '✅ Copied!';
+            btn.classList.add('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
+            }, 1000);
+        }
+
+        fmPrevBtn.onclick = () => { if (fmCurrentIndex > 0) { fmCurrentIndex--; updateFocusModeUI(); } };
+        fmSkipBtn.onclick = () => { if (fmCurrentIndex < globalParsedItems.length - 1) { fmCurrentIndex++; updateFocusModeUI(); } };
+
+        // Focus Mode Capture Logic
+        fmCaptureBtn.onclick = async () => {
+            try {
+                const originalHtml = fmCaptureBtn.innerHTML;
+                fmCaptureBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Capturing...`;
+                fmCaptureBtn.disabled = true;
+
+                const fullScreenshot = await getScreenCaptureDataUrl();
+                const croppedScreenshot = await openCropOverlay(fullScreenshot);
+
+                if (croppedScreenshot) {
+                    const item = globalParsedItems[fmCurrentIndex];
+                    const startFull = `${item.date} ${item.start}`;
+                    const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                    const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
+
+                    capturedMapsData[fmCurrentIndex] = {
+                        filename: filename,
+                        dataUrl: croppedScreenshot,
+                        displayText: displayText
+                    };
+
+                    generatedMapIndices.add(fmCurrentIndex);
+                    updateStatsUI();
+
+                    // Sync state back to the hidden List View
+                    const row = document.getElementById(`row-${fmCurrentIndex}`);
+                    if (row) {
+                        const imgPreview = row.querySelector('.map-preview-img');
+                        const imageSection = row.querySelector('.map-image-section');
+                        const downloadImgBtn = row.querySelector('.map-download-btn');
+                        const listCaptureBtn = document.getElementById(`capture-btn-${fmCurrentIndex}`);
+
+                        imgPreview.src = croppedScreenshot;
+                        imageSection.classList.remove('hidden');
+                        imageSection.classList.add('flex');
+                        listCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
+
+                        downloadImgBtn.onclick = () => {
+                            const a = document.createElement('a');
+                            a.href = croppedScreenshot;
+                            a.download = filename;
+                            a.click();
+                        };
+                    }
+
+                    // Auto Advance to Next Timeframe
+                    fmCurrentIndex++;
+                    updateFocusModeUI();
+                } else {
+                    fmCaptureBtn.innerHTML = originalHtml;
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message && err.message.includes('permissions policy')) {
+                    alert("Capture blocked: Please run this file locally.");
+                }
+                updateFocusModeUI(); // Reset button
+            } finally {
+                fmCaptureBtn.disabled = false;
+            }
+        };
 
         // Copy Bulk List logic
         copyBulkBtn.addEventListener('click', () => {
