@@ -169,6 +169,13 @@
                             </h2>
                             <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Paste your schedule request text below.</p>
                             
+                            <!-- Request Date Field -->
+                            <div id="requestDateContainer" class="mb-4 flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-300 dark:border-slate-600 transition-all duration-300 opacity-50 grayscale">
+                                <label for="requestDateInput" class="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Request Date:</label>
+                                <input type="date" id="requestDateInput" class="bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md px-2 py-1 flex-grow text-slate-700 dark:text-slate-300 cursor-pointer">
+                                <span class="text-xs text-slate-400 dark:text-slate-500 italic hidden sm:inline">(Used only for "last X days" requests)</span>
+                            </div>
+
                             <textarea id="scheduleInput" rows="4" class="w-full p-4 mb-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all placeholder:text-slate-400" placeholder="E.g., TRAIL MONITORING REQUEST FOR:- 15TH JUNE FROM 8AM-10AM..."></textarea>
                             
                             <button id="parseBtn" class="w-full flex justify-center items-center gap-2 px-6 py-3 bg-slate-800 dark:bg-slate-100 hover:bg-slate-900 dark:hover:bg-white text-white dark:text-slate-900 font-semibold rounded-xl transition-colors shadow-sm">
@@ -606,7 +613,38 @@
         const scheduleInput = document.getElementById('scheduleInput');
         const parseBtn = document.getElementById('parseBtn');
         const scheduleOutput = document.getElementById('scheduleOutput');
+        const parsedCount = document.getElementById('parsedCount');
+        const bulkOutputContainer = document.getElementById('bulkOutputContainer');
+        const bulkOutputText = document.getElementById('bulkOutputText');
+        const copyBulkBtn = document.getElementById('copyBulkBtn');
+        const emailTemplateContainer = document.getElementById('emailTemplateContainer');
+        const emailOutputText = document.getElementById('emailOutputText');
+        const copyEmailBtn = document.getElementById('copyEmailBtn');
+        const requestDateInput = document.getElementById('requestDateInput');
+
+        // Set default request date to today
+        const today = new Date();
+        requestDateInput.value = today.toISOString().split('T')[0];
+
+        // Dynamic UI feedback for the Request Date field
+        const requestDateContainer = document.getElementById('requestDateContainer');
         
+        scheduleInput.addEventListener('input', () => {
+            const text = scheduleInput.value;
+            const daysMatch = text.match(/for\s+(?:the\s+(?:last|past)\s+)?(\d+)\s+days?/i);
+            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(text) || /AM|PM/i.test(text) || /NOON|MIDNIGHT/i.test(text);
+            
+            if (daysMatch && !hasExplicitTimes) {
+                // Highlight field: Active mode
+                requestDateContainer.classList.remove('opacity-50', 'grayscale', 'border-slate-300', 'dark:border-slate-600');
+                requestDateContainer.classList.add('ring-2', 'ring-blue-500/30', 'border-blue-400', 'dark:border-blue-500');
+            } else {
+                // Dim field: Inactive mode
+                requestDateContainer.classList.add('opacity-50', 'grayscale', 'border-slate-300', 'dark:border-slate-600');
+                requestDateContainer.classList.remove('ring-2', 'ring-blue-500/30', 'border-blue-400', 'dark:border-blue-500');
+            }
+        });
+
         // Stats elements
         const parserStats = document.getElementById('parserStats');
         const reqMapsBadge = document.getElementById('reqMapsBadge');
@@ -615,13 +653,6 @@
         const limitWarning = document.getElementById('limitWarning');
         const downloadAllBtn = document.getElementById('downloadAllBtn');
         const copyAllMapsBtn = document.getElementById('copyAllMapsBtn');
-
-        const bulkOutputContainer = document.getElementById('bulkOutputContainer');
-        const bulkOutputText = document.getElementById('bulkOutputText');
-        const copyBulkBtn = document.getElementById('copyBulkBtn');
-        const emailTemplateContainer = document.getElementById('emailTemplateContainer');
-        const emailOutputText = document.getElementById('emailOutputText');
-        const copyEmailBtn = document.getElementById('copyEmailBtn');
 
         // State trackers
         let generatedMapIndices = new Set();
@@ -659,19 +690,30 @@
         function getHoursDiff(start, end) {
             if (!start || !end) return 0;
             const [sH, sM] = start.split(':').map(Number);
-            const [eH, eM] = end.split(':').map(Number);
+            let eH, eM;
+            
+            // Treat 23:59 as a full 24 hours for accurate interval math
+            if (end === '23:59') {
+                eH = 24; 
+                eM = 0;
+            } else {
+                [eH, eM] = end.split(':').map(Number);
+            }
+            
             let diff = (eH + eM/60) - (sH + sM/60);
             if (diff < 0) diff += 24; // Handle overnight
             return parseFloat(diff.toFixed(2));
         }
 
         function parseFormattedDate(dateStr) {
-            // Handle DD/MM format
+            // Handle DD/MM or DD/MM/YY format dynamically
             if (dateStr.includes('/')) {
                 let parts = dateStr.split('/');
                 let day = parts[0];
                 let month = parts[1];
-                return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/2026`;
+                let year = parts[2] ? parts[2] : '2026';
+                if (year.length === 2) year = '20' + year; // Convert 26 to 2026
+                return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
             }
             
             let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)/i);
@@ -690,6 +732,7 @@
 
         function parseFormattedTime(timeStr) {
             let times = timeStr.split(/\s*-\s*|\s+to\s+/i).map(t => t.trim());
+            
             let formatted = times.map(t => {
                 let clean = t.toUpperCase().replace(/\s/g, '');
                 if (clean === '12NOON' || clean === 'NOON') return '12:00';
@@ -706,11 +749,98 @@
                 
                 return `${hrs.toString().padStart(2, '0')}:${mins}`;
             });
-            return formatted; 
+            return formatted; // Return the array of times
         }
 
         function parseSchedule(input) {
-            const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b|\b\d{1,2}\/\d{1,2}\b/gi;
+            // 1. Check for automated formats without explicit times
+            const daysMatch = input.match(/for\s+(?:the\s+(?:last|past)\s+)?(\d+)\s+days?/i);
+            const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:-|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
+            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT/i.test(input);
+
+            const intervals = [
+                { start: "00:00", end: "06:00", hours: 6 },
+                { start: "06:00", end: "12:00", hours: 6 },
+                { start: "12:00", end: "18:00", hours: 6 },
+                { start: "18:00", end: "23:59", hours: 6 }
+            ];
+
+            // Retrospective: Generate the past N days chronologically, ending on the Request Date
+            if (daysMatch && !hasExplicitTimes) {
+                let results = [];
+                let numDays = parseInt(daysMatch[1], 10);
+                
+                const reqDateVal = requestDateInput.value;
+                const baseRequestDate = reqDateVal ? new Date(reqDateVal) : new Date();
+                
+                // i goes from numDays - 1 down to 0 to include the baseRequestDate as the final day
+                for (let i = numDays - 1; i >= 0; i--) {
+                    let d = new Date(baseRequestDate);
+                    d.setDate(baseRequestDate.getDate() - i); 
+                    
+                    let dd = d.getDate().toString().padStart(2, '0');
+                    let mm = (d.getMonth() + 1).toString().padStart(2, '0');
+                    let yyyy = d.getFullYear();
+                    let formattedDate = `${dd}/${mm}/${yyyy}`;
+
+                    intervals.forEach(interval => {
+                        results.push({
+                            date: formattedDate,
+                            start: interval.start,
+                            end: interval.end,
+                            hours: interval.hours
+                        });
+                    });
+                }
+                return results;
+            }
+
+            // Date Range: Generate 4 intervals per day from start to end date
+            if (rangeMatch && !hasExplicitTimes) {
+                let results = [];
+                
+                function parseDatePart(dateStr) {
+                    let parts = dateStr.split('/');
+                    let day = parseInt(parts[0], 10);
+                    let month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+                    let year = 2026;
+                    if (parts[2]) {
+                        year = parseInt(parts[2], 10);
+                        if (year < 100) year += 2000;
+                    }
+                    return new Date(year, month, day);
+                }
+
+                let startDate = parseDatePart(rangeMatch[1]);
+                let endDate = parseDatePart(rangeMatch[2]);
+                
+                if (startDate > endDate) {
+                    let temp = startDate; startDate = endDate; endDate = temp;
+                }
+
+                let current = new Date(startDate);
+                while (current <= endDate) {
+                    let dd = current.getDate().toString().padStart(2, '0');
+                    let mm = (current.getMonth() + 1).toString().padStart(2, '0');
+                    let yyyy = current.getFullYear();
+                    let formattedDate = `${dd}/${mm}/${yyyy}`;
+
+                    intervals.forEach(interval => {
+                        results.push({
+                            date: formattedDate,
+                            start: interval.start,
+                            end: interval.end,
+                            hours: interval.hours
+                        });
+                    });
+                    current.setDate(current.getDate() + 1);
+                }
+                return results;
+            }
+
+            // 2. Original Regex to find explicit dates and times
+            const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/gi;
+            
             let matches = [...input.matchAll(dateRegex)];
             if (matches.length === 0) return [];
 
@@ -732,6 +862,12 @@
                         
                         let start = formattedTimesArray[0];
                         let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
+                        
+                        // Prevent "00:00" from displaying as end of day
+                        if (end === '00:00' || end === '24:00') {
+                            end = '23:59';
+                        }
+                        
                         let hours = getHoursDiff(start, end);
 
                         results.push({
