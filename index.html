@@ -214,10 +214,16 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                     Parsed Time Frames
                                 </h3>
-                                <button id="downloadAllBtn" class="hidden items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    Download All Maps (ZIP)
-                                </button>
+                                <div class="flex gap-2">
+                                    <button id="copyAllMapsBtn" class="hidden items-center gap-2 px-4 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                        Copy Maps to Clipboard
+                                    </button>
+                                    <button id="downloadAllBtn" class="hidden items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                        Download All (ZIP)
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Tracking Stats Banner -->
@@ -606,6 +612,7 @@
         const totalHoursBadge = document.getElementById('totalHoursBadge');
         const limitWarning = document.getElementById('limitWarning');
         const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const copyAllMapsBtn = document.getElementById('copyAllMapsBtn');
 
         const bulkOutputContainer = document.getElementById('bulkOutputContainer');
         const bulkOutputText = document.getElementById('bulkOutputText');
@@ -637,9 +644,13 @@
             if (generatedMapIndices.size > 0) {
                 downloadAllBtn.classList.remove('hidden');
                 downloadAllBtn.classList.add('flex');
+                copyAllMapsBtn.classList.remove('hidden');
+                copyAllMapsBtn.classList.add('flex');
             } else {
                 downloadAllBtn.classList.add('hidden');
                 downloadAllBtn.classList.remove('flex');
+                copyAllMapsBtn.classList.add('hidden');
+                copyAllMapsBtn.classList.remove('flex');
             }
         }
 
@@ -750,6 +761,8 @@
             currentTotalHours = 0;
             downloadAllBtn.classList.add('hidden');
             downloadAllBtn.classList.remove('flex');
+            copyAllMapsBtn.classList.add('hidden');
+            copyAllMapsBtn.classList.remove('flex');
             
             if (parsedItems.length === 0) {
                 scheduleOutput.innerHTML = `
@@ -880,7 +893,8 @@
                             // Save map data for the "Download All" feature
                             capturedMapsData[index] = {
                                 filename: filename,
-                                dataUrl: croppedScreenshot
+                                dataUrl: croppedScreenshot,
+                                displayText: displayText
                             };
                             
                             // Update Generated Map Stats
@@ -987,6 +1001,80 @@
                 alert("Failed to create ZIP file. Please try downloading individually.");
                 downloadAllBtn.innerHTML = originalHtml;
                 downloadAllBtn.disabled = false;
+            }
+        });
+
+        // Copy All Maps to Clipboard Logic (Rich Text Format)
+        copyAllMapsBtn.addEventListener('click', async () => {
+            if (Object.keys(capturedMapsData).length === 0) return;
+            
+            const originalHtml = copyAllMapsBtn.innerHTML;
+            copyAllMapsBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-800 dark:border-white"></div> Copying...`;
+            copyAllMapsBtn.disabled = true;
+
+            try {
+                // Construct Rich HTML content for clipboard
+                let htmlContent = `<div style="font-family: Arial, sans-serif;">`;
+                
+                // Sort keys to maintain chronological chronological top-down order
+                const sortedKeys = Object.keys(capturedMapsData).map(Number).sort((a, b) => a - b);
+                
+                for (const key of sortedKeys) {
+                    const map = capturedMapsData[key];
+                    // Format identically to the requested Word doc layout
+                    htmlContent += `
+                        <p style="margin-bottom: 8px; font-size: 11pt;"><strong><u>${map.displayText}</u></strong></p>
+                        <img src="${map.dataUrl}" style="max-width: 100%; border: 1px solid #d1d5db;" alt="Map for ${map.displayText}" />
+                        <br><br>
+                    `;
+                }
+                htmlContent += `</div>`;
+
+                // Create hidden contenteditable div to execute the copy command
+                const hiddenDiv = document.createElement('div');
+                hiddenDiv.contentEditable = true;
+                hiddenDiv.innerHTML = htmlContent;
+                hiddenDiv.style.position = 'absolute';
+                hiddenDiv.style.left = '-9999px';
+                hiddenDiv.style.top = '-9999px';
+                document.body.appendChild(hiddenDiv);
+
+                // Select the rich content
+                const range = document.createRange();
+                range.selectNodeContents(hiddenDiv);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                // Execute copy
+                const successful = document.execCommand('copy');
+                
+                // Cleanup
+                selection.removeAllRanges();
+                document.body.removeChild(hiddenDiv);
+
+                if (successful) {
+                    copyAllMapsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+                    copyAllMapsBtn.classList.replace('bg-slate-200', 'bg-green-100');
+                    copyAllMapsBtn.classList.replace('dark:bg-slate-700', 'dark:bg-emerald-900/50');
+                    copyAllMapsBtn.classList.add('text-green-800', 'dark:text-emerald-400');
+                } else {
+                    throw new Error("Copy command failed");
+                }
+                
+                setTimeout(() => {
+                    copyAllMapsBtn.innerHTML = originalHtml;
+                    copyAllMapsBtn.classList.replace('bg-green-100', 'bg-slate-200');
+                    copyAllMapsBtn.classList.replace('dark:bg-emerald-900/50', 'dark:bg-slate-700');
+                    copyAllMapsBtn.classList.remove('text-green-800', 'dark:text-emerald-400');
+                    copyAllMapsBtn.disabled = false;
+                }, 3000);
+
+            } catch (err) {
+                console.error("Failed to copy maps:", err);
+                alert("Failed to copy images to clipboard. Your browser might block this action.");
+                copyAllMapsBtn.innerHTML = originalHtml;
+                copyAllMapsBtn.disabled = false;
             }
         });
 
