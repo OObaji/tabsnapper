@@ -387,7 +387,8 @@
             canvas.height = activeVideoElement.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(activeVideoElement, 0, 0, canvas.width, canvas.height);
-            return canvas.toDataURL('image/png');
+            // Switched from PNG to optimized JPEG (80% quality) to save massive space
+            return canvas.toDataURL('image/jpeg', 0.8);
         }
 
         function stopActiveStream() {
@@ -464,7 +465,8 @@
         function downloadScreenshot() {
             if (!currentImageURL) return;
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `screenshot-${timestamp}.png`;
+            // Update extension to jpg
+            const filename = `screenshot-${timestamp}.jpg`;
             const a = document.createElement('a');
             a.href = currentImageURL;
             a.download = filename;
@@ -542,7 +544,8 @@
                 resCanvas.height = h;
                 resCanvas.getContext('2d').drawImage(cropCanvas, x, y, w, h, 0, 0, w, h);
                 
-                if(cropResolveFn) cropResolveFn(resCanvas.toDataURL('image/png'));
+                // Switched cropped output to optimized JPEG
+                if(cropResolveFn) cropResolveFn(resCanvas.toDataURL('image/jpeg', 0.8));
             }
             closeCropOverlay();
         });
@@ -888,7 +891,8 @@
                             imageSection.classList.add('flex');
                             captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
                             
-                            const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+                            // Change extension to .jpg
+                            const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
                             
                             // Save map data for the "Download All" feature
                             capturedMapsData[index] = {
