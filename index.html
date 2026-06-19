@@ -1,1621 +1,1101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tab Snapper - Fast Screenshot Tool</title>
+    <title>Tab Snapper & Data Parser</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-up': 'slideUp 0.4s ease-out forwards',
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        /* Custom animations and styling */
-        @keyframes fade-in {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc; /* Slate 50 */
         }
-        .animate-fade-in {
-            animation: fade-in 0.4s ease-out forwards;
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7); /* Slate 800 */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .shimmer {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-        .dark .shimmer {
-            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-        }
-        /* Custom scrollbar for parser list */
+
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
+            background: rgba(15, 23, 42, 0.5); 
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
+            background: rgba(71, 85, 105, 0.8); 
             border-radius: 10px;
         }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #475569;
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 1); 
+        }
+
+        /* Continuous Capture Highlight */
+        .mode-active {
+            box-shadow: 0 0 0 2px #3b82f6, 0 0 15px rgba(59, 130, 246, 0.5);
+            border-color: #3b82f6;
         }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen font-sans transition-colors duration-300">
+<body class="h-screen flex flex-col overflow-hidden selection:bg-blue-500/30">
 
-    <div class="max-w-[1400px] mx-auto p-4 md:p-6 flex flex-col min-h-screen">
-        
-        <!-- Header -->
-        <header class="mb-8 text-center pt-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white mb-4 shadow-lg shadow-blue-500/30">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-                    <circle cx="12" cy="13" r="3"></circle>
-                </svg>
+    <!-- Top Navigation Bar -->
+    <header class="glass-panel border-b border-slate-700/50 flex-none z-20 shadow-sm shadow-black/20">
+        <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                </div>
+                <h1 class="font-bold text-lg tracking-tight text-white">Tab Snapper</h1>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 ml-2 uppercase tracking-wider">Pro</span>
             </div>
-            <h1 class="text-3xl font-extrabold tracking-tight mb-2">Tab Snapper</h1>
-            <p class="text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
-                Quickly capture high-quality screenshots of any browser tab, window, or your entire screen.
-            </p>
-        </header>
+            
+            <div class="flex items-center gap-4">
+                <!-- Mode Toggle -->
+                <div class="bg-slate-800/80 p-1 rounded-lg border border-slate-700 flex text-sm shadow-inner">
+                    <button id="btnContinuous" class="px-3 py-1.5 rounded-md font-medium transition-all mode-active bg-slate-700 text-white flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path><line x1="16" y1="5" x2="22" y2="5"></line><line x1="19" y1="2" x2="19" y2="8"></line><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+                        Continuous
+                    </button>
+                    <button id="btnParser" class="px-3 py-1.5 rounded-md font-medium transition-all text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="4" x2="14" y2="4"></line><line x1="10" y1="4" x2="3" y2="4"></line><line x1="21" y1="12" x2="12" y2="12"></line><line x1="8" y1="12" x2="3" y2="12"></line><line x1="21" y1="20" x2="16" y2="20"></line><line x1="12" y1="20" x2="3" y2="20"></line><line x1="14" y1="2" x2="14" y2="6"></line><line x1="8" y1="10" x2="8" y2="14"></line><line x1="16" y1="18" x2="16" y2="22"></line></svg>
+                        Data Parser
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
 
-        <!-- Tab Navigation -->
-        <div class="flex justify-center mb-8">
-            <nav class="flex space-x-2 bg-slate-200/60 dark:bg-slate-800/60 p-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
-                <button id="navTabScreenshot" class="tab-btn active px-6 py-2.5 rounded-lg text-sm font-bold transition-all bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400">Screenshot Tool</button>
-                <button id="navTabParser" class="tab-btn px-6 py-2.5 rounded-lg text-sm font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50">Schedule & Emails</button>
-            </nav>
+    <!-- Main Workspace Area -->
+    <main class="flex-grow flex relative overflow-hidden">
+        
+        <!-- ========================================== -->
+        <!-- VIEW 1: CONTINUOUS CAPTURE (Default)       -->
+        <!-- ========================================== -->
+        <div id="viewContinuous" class="w-full h-full flex flex-col absolute inset-0 transition-opacity duration-300">
+            <!-- Instructions Overlay (Hidden when active) -->
+            <div id="startOverlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm transition-opacity duration-300">
+                <div class="bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl max-w-md text-center">
+                    <div class="w-16 h-16 bg-blue-500/10 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2">Continuous Screen Capture</h2>
+                    <p class="text-slate-400 mb-6 text-sm">Select a window or screen. Tab Snapper will remember your crop area and let you quickly snap multiple screenshots of the same region.</p>
+                    <button id="btnStartScreenShare" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        Select Window to Capture
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video/Canvas Area -->
+            <div class="flex-grow relative bg-slate-950 flex items-center justify-center overflow-hidden p-4">
+                <video id="screenVideo" autoplay class="max-w-full max-h-full hidden shadow-2xl rounded-lg ring-1 ring-white/10"></video>
+                <canvas id="cropCanvas" class="absolute z-20 cursor-crosshair hidden"></canvas>
+            </div>
+
+            <!-- Bottom Control Bar (Shows during capture) -->
+            <div id="captureControls" class="glass-panel border-t border-slate-700/50 p-4 flex justify-between items-center hidden translate-y-full transition-transform duration-300">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-3 w-3 relative">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                    <span class="text-sm font-medium text-slate-300">Capturing: <span id="windowName" class="text-white font-semibold">Unknown Window</span></span>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <button id="btnCrop" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-slate-600">
+                        1. Draw Crop Area
+                    </button>
+                    <button id="btnCapture" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        2. Snap & Save
+                    </button>
+                </div>
+                
+                <button id="btnStopShare" class="text-slate-400 hover:text-red-400 text-sm font-medium transition-colors px-3 py-2 rounded-lg hover:bg-red-500/10">
+                    Stop
+                </button>
+            </div>
         </div>
 
-        <!-- Main Controls -->
-        <main class="flex-grow flex flex-col items-center w-full">
+        <!-- ========================================== -->
+        <!-- VIEW 2: DATA PARSER                        -->
+        <!-- ========================================== -->
+        <div id="viewParser" class="w-full h-full flex absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300 bg-slate-900">
             
-            <!-- VIEW: SCREENSHOT TOOL -->
-            <div id="viewScreenshot" class="w-full flex flex-col items-center max-w-4xl animate-fade-in">
-                
-                <div class="flex flex-wrap items-center justify-center gap-4 mb-4">
-                    <button id="captureBtn" class="group relative inline-flex items-center justify-center gap-2 px-8 py-4 font-bold text-white bg-blue-600 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:scale-110 transition-transform">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                            <line x1="8" y1="21" x2="16" y2="21"></line>
-                            <line x1="12" y1="17" x2="12" y2="21"></line>
-                        </svg>
-                        <span id="captureBtnLabel">Select Tab to Capture</span>
-                    </button>
-                    
-                    <button id="changeTabBtn" class="hidden px-5 py-3 font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors shadow-sm">
-                        Change Target Tab
-                    </button>
+            <!-- Left Column: Input -->
+            <div class="w-1/3 min-w-[350px] border-r border-slate-700/50 glass-panel flex flex-col p-4 z-10 shadow-xl shadow-black/20">
+                <div class="mb-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        Request Text
+                    </h2>
+                    <p class="text-xs text-slate-400">Paste the GPS trail request below.</p>
                 </div>
 
-                <div id="sessionBadge" class="hidden items-center gap-2 mb-6 px-3 py-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-800 animate-fade-in">
-                    <span class="relative flex h-2.5 w-2.5">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                    </span>
-                    Connected to Target Tab
-                </div>
-
-                <!-- Status Message -->
-                <div id="statusMessage" class="hidden px-4 py-3 rounded-lg mb-6 text-sm font-medium transition-all w-full max-w-2xl text-center"></div>
-
-                <!-- Preview Area -->
-                <div id="previewContainer" class="w-full bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col items-center justify-center min-h-[400px] relative transition-all">
-                    
-                    <!-- Empty State -->
-                    <div id="emptyState" class="text-center p-8 flex flex-col items-center opacity-100 transition-opacity duration-300">
-                        <div class="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                <polyline points="21 15 16 10 5 21"></polyline>
-                            </svg>
+                <!-- NEW: Request Date Field -->
+                <div class="mb-3">
+                    <label for="requestDate" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Request Date (For "Last X Days")</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                         </div>
-                        <h3 class="text-lg font-semibold mb-1">No screenshot yet</h3>
-                        <p class="text-slate-500 dark:text-slate-400 text-sm max-w-sm">
-                            Click the capture button above and choose a tab or screen. Your screenshot will appear here.
-                        </p>
+                        <input type="date" id="requestDate" class="w-full bg-slate-800/50 border border-slate-700 text-slate-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pl-10 p-2 transition-colors opacity-60 pointer-events-none">
                     </div>
-
-                    <!-- Loading State -->
-                    <div id="loadingState" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm hidden">
-                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                        <p class="font-medium text-slate-600 dark:text-slate-300">Capturing display...</p>
-                    </div>
-
-                    <!-- Image Preview -->
-                    <img id="previewImage" class="max-w-full max-h-[60vh] object-contain hidden p-2" alt="Screenshot preview">
                 </div>
 
-                <!-- Action Buttons (Hidden by default) -->
-                <div id="actionButtons" class="mt-6 flex flex-wrap gap-4 hidden animate-fade-in">
-                    <button id="downloadBtn" class="flex items-center gap-2 px-6 py-3 font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Download PNG
-                    </button>
-                    <button id="newCaptureBtn" class="flex items-center gap-2 px-6 py-3 font-semibold text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                            <path d="M3 3v5h5"></path>
-                        </svg>
-                        Take Another
-                    </button>
-                </div>
-            </div> <!-- End of viewScreenshot -->
-            
-            <!-- VIEW: SCHEDULE PARSER & EMAILS -->
-            <div id="viewParser" class="hidden w-full max-w-7xl animate-fade-in">
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <textarea id="parseInput" class="flex-grow w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none custom-scrollbar shadow-inner" placeholder="E.g., Please can i request GPS trail monitoring data for Charlie Stretton, 05/08/2007 for the last 7 days?"></textarea>
+                
+                <button id="btnParse" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 active:scale-[0.98]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    Generate Time Frames
+                </button>
+            </div>
+
+            <!-- Right Column: Output -->
+            <div class="flex-grow flex flex-col p-6 bg-slate-900 relative">
+                <div class="max-w-4xl w-full mx-auto flex flex-col h-full">
                     
-                    <!-- Left Column: Input & Results -->
-                    <div class="lg:col-span-5 flex flex-col gap-6">
-                        
-                        <!-- Input Card -->
-                        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-                            <h2 class="text-xl font-bold mb-2 flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                                </svg>
-                                Schedule Request Parser
+                    <!-- Header & Toggles -->
+                    <div class="flex justify-between items-end mb-6 pb-4 border-b border-slate-800">
+                        <div>
+                            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                Parsed Schedule
                             </h2>
-                            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Paste your schedule request text below.</p>
-                            
-                            <!-- Request Date Field -->
-                            <div id="requestDateContainer" class="mb-4 flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-300 dark:border-slate-600 transition-all duration-300 opacity-50 grayscale">
-                                <label for="requestDateInput" class="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Request Date:</label>
-                                <input type="date" id="requestDateInput" class="bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md px-2 py-1 flex-grow text-slate-700 dark:text-slate-300 cursor-pointer">
-                                <span class="text-xs text-slate-400 dark:text-slate-500 italic hidden sm:inline">(Used only for "last X days" requests)</span>
-                            </div>
-
-                            <textarea id="scheduleInput" rows="4" class="w-full p-4 mb-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all placeholder:text-slate-400" placeholder="E.g., TRAIL MONITORING REQUEST FOR:- 15TH JUNE FROM 8AM-10AM..."></textarea>
-                            
-                            <button id="parseBtn" class="w-full flex justify-center items-center gap-2 px-6 py-3 bg-slate-800 dark:bg-slate-100 hover:bg-slate-900 dark:hover:bg-white text-white dark:text-slate-900 font-semibold rounded-xl transition-colors shadow-sm">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                Parse Request
+                            <p class="text-sm text-slate-400 mt-1">Found <span id="countOutput" class="text-white font-medium">0</span> intervals</p>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <button id="btnFocusModeToggle" class="hidden px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg border border-slate-700 transition-colors flex items-center gap-2 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                                🎯 Focus Mode
                             </button>
                         </div>
-
-                        <!-- Bulk Output Card -->
-                        <div id="bulkOutputContainer" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 animate-fade-in">
-                            <div class="flex items-center justify-between mb-3">
-                                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">Combined Schedule List</h3>
-                                <button id="copyBulkBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                    <span>Copy List</span>
-                                </button>
-                            </div>
-                            <textarea id="bulkOutputText" rows="4" readonly class="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-sm font-mono focus:outline-none resize-y text-slate-700 dark:text-slate-300 selection:bg-blue-200 selection:text-blue-900"></textarea>
-                        </div>
-                        
-                        <!-- Email Template Card -->
-                        <div id="emailTemplateContainer" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-blue-200 dark:border-blue-900/50 p-6 animate-fade-in relative overflow-hidden">
-                            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                            <div class="flex items-center justify-between mb-3 pl-2">
-                                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">Generated Email Template</h3>
-                                <button id="copyEmailBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                    <span>Copy Email</span>
-                                </button>
-                            </div>
-                            <textarea id="emailOutputText" rows="8" readonly class="w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-blue-50/50 dark:bg-slate-900/80 text-sm focus:outline-none resize-y text-slate-800 dark:text-slate-200"></textarea>
-                        </div>
-
                     </div>
 
-                    <!-- Right Column: Parsed Time Frames Workspace -->
-                    <div class="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 min-h-[400px] flex flex-col">
+                    <!-- 28 Limit Warning Banner -->
+                    <div id="limitWarning" class="hidden mb-4 text-sm font-bold text-red-200 bg-red-900/40 border border-red-800/50 px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg shadow-red-900/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        Warning: Maximum limit of 28 maps exceeded! Truncating list.
+                    </div>
+
+                    <!-- LIST VIEW CONTAINER -->
+                    <div id="scheduleOutput" class="flex flex-col gap-3 overflow-y-auto custom-scrollbar flex-grow pr-2 pb-6">
+                        <!-- Empty State -->
+                        <div class="h-full flex flex-col items-center justify-center py-20 text-slate-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-slate-700"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            <p class="text-sm font-medium">Parsed time frames will appear here.</p>
+                        </div>
+                    </div>
+
+                    <!-- FOCUS MODE CONTAINER (Hidden by default) -->
+                    <div id="focusModeContainer" class="hidden flex-col items-center justify-center flex-grow w-full animate-fade-in relative">
                         
-                        <!-- Header with Stats -->
-                        <div class="flex flex-col mb-4 border-b border-slate-100 dark:border-slate-700 pb-4">
-                            <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
-                                <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                    Parsed Time Frames
-                                </h3>
-                                <div class="flex flex-wrap gap-2">
-                                    <button id="toggleViewBtn" class="hidden items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/70 rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                        🎯 Focus Mode
-                                    </button>
-                                    <button id="copyAllMapsBtn" class="hidden items-center gap-2 px-4 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <!-- Top left minimal back button -->
+                        <button id="btnExitFocusMode" class="absolute top-0 left-0 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 border border-slate-700/50">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            Back to List
+                        </button>
+
+                        <div class="w-full max-w-xl glass-panel border border-blue-500/30 rounded-2xl p-8 shadow-2xl flex flex-col items-center relative overflow-hidden ring-1 ring-white/5">
+                            
+                            <!-- Progress Bar -->
+                            <div class="absolute top-0 left-0 h-1 bg-slate-800 w-full">
+                                <div id="fmProgressBar" class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300 w-0"></div>
+                            </div>
+                            
+                            <div class="text-sm font-bold text-blue-400 mb-6 uppercase tracking-widest bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                                Map <span id="fmCurrentCount">1</span> of <span id="fmTotalCount">28</span>
+                            </div>
+
+                            <div class="text-center w-full mb-8">
+                                <div id="fmDate" class="text-2xl font-bold text-white mb-2">15th June 2026</div>
+                                <div class="flex items-center justify-center gap-4 text-slate-300">
+                                    <div class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg font-mono text-lg" id="fmStartTime">00:00</div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                                    <div class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg font-mono text-lg" id="fmEndTime">06:00</div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex flex-col w-full gap-3">
+                                <div class="flex gap-3">
+                                    <button id="fmCopyBothBtn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-medium transition-colors border border-slate-600 flex items-center justify-center gap-2 shadow-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        Copy All Maps to Clipboard
-                                    </button>
-                                    <button id="downloadAllBtn" class="hidden items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-bold shadow-sm transition-colors focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                        Download All (ZIP)
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Tracking Stats Banner -->
-                            <div id="parserStats" class="hidden flex flex-wrap gap-2 text-xs font-bold items-center">
-                                <span id="reqMapsBadge" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent">0 Maps Required</span>
-                                <span id="genMapsBadge" class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">0 Generated</span>
-                                <span id="totalHoursBadge" class="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">0 Total Hours</span>
-                            </div>
-                            
-                            <!-- 28 Limit Warning Banner -->
-                            <div id="limitWarning" class="hidden mt-3 text-sm font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 px-3 py-2 rounded-md flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                                Warning: Maximum limit of 28 maps exceeded! Please reduce your request.
-                            </div>
-                        </div>
-
-                        <!-- List View Container (Restored) -->
-                        <div id="scheduleOutput" class="flex flex-col gap-4 mt-2 overflow-y-auto custom-scrollbar flex-grow pr-2 pb-6 min-h-[300px]">
-                            <div class="h-full flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-blue-300 dark:text-blue-800/50 opacity-50"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                <p class="text-sm">Parsed time frames will appear here.</p>
-                            </div>
-                        </div>
-
-                        <!-- Focus Mode Container (Hidden by Default) -->
-                        <div id="focusModeContainer" class="hidden flex-col items-center justify-center py-6 flex-grow w-full animate-fade-in">
-                            <div class="w-full max-w-lg bg-slate-50 dark:bg-slate-800/80 border border-blue-200 dark:border-blue-800/50 rounded-3xl p-6 shadow-md flex flex-col items-center relative overflow-hidden">
-                                <div class="absolute top-0 left-0 h-1.5 bg-blue-500 transition-all duration-300" id="fmProgressBar" style="width: 0%;"></div>
-
-                                <div class="text-xs font-bold text-slate-400 dark:text-slate-500 mb-3 tracking-widest uppercase mt-2">
-                                    Step <span id="fmStep" class="text-blue-600 dark:text-blue-400">1</span> of <span id="fmTotal">28</span>
-                                </div>
-
-                                <h2 id="fmDisplayText" class="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 mb-6 text-center leading-tight">
-                                    10/06/2026 <br> <span class="text-blue-600 dark:text-blue-400">00:00 - 06:00</span>
-                                </h2>
-
-                                <div class="flex gap-3 w-full mb-3">
-                                    <button id="fmCopyStartBtn" class="flex-1 py-3 bg-white hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-base font-bold text-slate-700 dark:text-slate-200 transition-all border border-slate-200 dark:border-slate-600 shadow-sm">Copy Start</button>
-                                    <button id="fmCopyEndBtn" class="flex-1 py-3 bg-white hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-base font-bold text-slate-700 dark:text-slate-200 transition-all border border-slate-200 dark:border-slate-600 shadow-sm">Copy End</button>
-                                </div>
-
-                                <button id="fmCopyBothBtn" class="text-xs text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 mb-6 font-medium underline cursor-pointer transition-colors">⚡ Tip: Click to Copy Both (Tab-Separated)</button>
-
-                                <div class="flex flex-col sm:flex-row w-full gap-3">
-                                    <button id="fmQuickCaptureBtn" class="hidden flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-lg font-bold shadow-md shadow-emerald-500/20 transition-all justify-center items-center gap-2 border border-emerald-500">
-                                        ⚡ Quick Capture
-                                    </button>
-                                    <button id="fmCaptureBtn" class="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-lg font-bold shadow-md shadow-blue-500/20 transition-all flex justify-center items-center gap-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                                        <span id="fmCaptureText">Manual Crop</span>
+                                        Copy Start & End
                                     </button>
                                 </div>
                                 
-                                <div class="text-center mt-3 text-xs text-slate-400 dark:text-slate-500 font-medium">
-                                    Shortcuts: <kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">C</kbd> Copy Both • <kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">Enter</kbd> Quick Capture
-                                </div>
+                                <button id="fmCaptureMapBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-bold text-lg transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                                    Draw Crop & Capture
+                                </button>
+                                
+                                <!-- Quick Capture Button (Appears after 1st crop) -->
+                                <button id="fmQuickCaptureBtn" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold text-lg transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 animate-slide-up">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                    ⚡ Quick Capture
+                                </button>
+                            </div>
 
-                                <div class="flex justify-between w-full mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/50">
-                                    <button id="fmPrevBtn" class="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg> Previous
-                                    </button>
-                                    <button id="fmSkipBtn" class="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
-                                        Skip <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                                    </button>
-                                </div>
+                            <div class="text-center mt-4 text-xs text-slate-400 font-medium bg-slate-900/50 px-4 py-2 rounded-lg border border-slate-800">
+                                Shortcuts: <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300 mx-1">C</kbd> Copy Both • <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300 mx-1">Enter</kbd> Quick Capture • <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300 mx-1">➔</kbd> Skip
+                            </div>
+
+                            <div class="flex justify-between w-full mt-6 pt-4 border-t border-slate-800">
+                                <button id="fmPrevBtn" class="px-3 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 rounded-lg hover:bg-slate-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg> Previous
+                                </button>
+                                <button id="fmSkipBtn" class="px-3 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 rounded-lg hover:bg-slate-800">
+                                    Skip <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                </button>
                             </div>
                         </div>
-
                     </div>
-                </div> <!-- End of viewParser -->
-        <footer class="mt-12 text-center text-sm text-slate-400 dark:text-slate-500 pb-4">
-            <p>Runs entirely in your browser. No images are uploaded to any server.</p>
-        </footer>
-    </div>
-
-    <!-- Crop Overlay UI -->
-    <div id="cropOverlay" class="fixed inset-0 z-[9999] hidden bg-slate-900/95 flex-col select-none">
-        <div class="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800 shadow-md">
-            <div class="text-white font-medium flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
-                    <path d="M6 2v14a2 2 0 0 0 2 2h14"></path>
-                    <path d="M18 22V8a2 2 0 0 0-2-2H2"></path>
-                </svg>
-                Click and drag to select map region
-            </div>
-            <div class="flex gap-3">
-                <button id="cropCancelBtn" class="px-5 py-2 text-slate-300 hover:text-white transition-colors font-medium">Cancel</button>
-                <button id="cropConfirmBtn" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold shadow-sm transition-colors">Confirm Selection</button>
+                    
+                </div>
             </div>
         </div>
-        <div class="flex-grow relative overflow-hidden flex items-center justify-center p-4 w-full h-full" id="cropWorkspace">
-            <canvas id="cropCanvas" class="cursor-crosshair shadow-2xl max-w-full max-h-full object-contain bg-black/50"></canvas>
-        </div>
-    </div>
+    </main>
 
     <script>
-        // DOM Elements
-        const navTabScreenshot = document.getElementById('navTabScreenshot');
-        const navTabParser = document.getElementById('navTabParser');
-        const viewScreenshot = document.getElementById('viewScreenshot');
+        const btnContinuous = document.getElementById('btnContinuous');
+        const btnParser = document.getElementById('btnParser');
+        const viewContinuous = document.getElementById('viewContinuous');
         const viewParser = document.getElementById('viewParser');
 
-        const captureBtn = document.getElementById('captureBtn');
-        const captureBtnLabel = document.getElementById('captureBtnLabel');
-        const changeTabBtn = document.getElementById('changeTabBtn');
-        const sessionBadge = document.getElementById('sessionBadge');
-        
-        const previewContainer = document.getElementById('previewContainer');
-        const emptyState = document.getElementById('emptyState');
-        const loadingState = document.getElementById('loadingState');
-        const previewImage = document.getElementById('previewImage');
-        const actionButtons = document.getElementById('actionButtons');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const newCaptureBtn = document.getElementById('newCaptureBtn');
-        const statusMessage = document.getElementById('statusMessage');
-
-        let currentImageURL = null;
-        let activeVideoStream = null;
-        let activeVideoElement = null;
-
-        // --- Tab Switching Logic ---
-        navTabScreenshot.addEventListener('click', () => {
-            navTabScreenshot.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-            navTabScreenshot.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+        // Toggle logic
+        btnContinuous.addEventListener('click', () => {
+            btnContinuous.classList.add('mode-active', 'bg-slate-700', 'text-white');
+            btnContinuous.classList.remove('text-slate-400');
+            btnParser.classList.remove('mode-active', 'bg-slate-700', 'text-white');
+            btnParser.classList.add('text-slate-400');
             
-            navTabParser.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-            navTabParser.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-
-            viewScreenshot.classList.remove('hidden');
-            viewParser.classList.add('hidden');
+            viewContinuous.style.opacity = '1';
+            viewContinuous.style.pointerEvents = 'auto';
+            viewParser.style.opacity = '0';
+            viewParser.style.pointerEvents = 'none';
         });
 
-        navTabParser.addEventListener('click', () => {
-            navTabParser.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-            navTabParser.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
+        btnParser.addEventListener('click', () => {
+            btnParser.classList.add('mode-active', 'bg-slate-700', 'text-white');
+            btnParser.classList.remove('text-slate-400');
+            btnContinuous.classList.remove('mode-active', 'bg-slate-700', 'text-white');
+            btnContinuous.classList.add('text-slate-400');
             
-            navTabScreenshot.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
-            navTabScreenshot.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-200/50', 'dark:hover:bg-slate-700/50');
-
-            viewParser.classList.remove('hidden');
-            viewScreenshot.classList.add('hidden');
+            viewParser.style.opacity = '1';
+            viewParser.style.pointerEvents = 'auto';
+            viewContinuous.style.opacity = '0';
+            viewContinuous.style.pointerEvents = 'none';
         });
 
-        // Show toast/status message
-        function showMessage(msg, isError = false) {
-            statusMessage.textContent = msg;
-            statusMessage.className = `px-4 py-3 rounded-lg mb-6 text-sm font-medium transition-all ${
-                isError 
-                ? 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800' 
-                : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800'
-            } block animate-fade-in w-full max-w-2xl text-center`;
-            statusMessage.classList.remove('hidden');
-            
-            // Auto hide after 5 seconds if it's an error
-            if (isError) {
-                setTimeout(() => {
-                    statusMessage.classList.add('hidden');
-                }, 5000);
-            }
-        }
+        // Set default Request Date to today
+        const requestDateInput = document.getElementById('requestDate');
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        requestDateInput.value = `${yyyy}-${mm}-${dd}`;
 
-        function hideMessage() {
-            statusMessage.classList.add('hidden');
-        }
+        const video = document.getElementById('screenVideo');
+        const canvas = document.getElementById('cropCanvas');
+        const ctx = canvas.getContext('2d');
+        const btnStart = document.getElementById('btnStartScreenShare');
+        const btnStop = document.getElementById('btnStopShare');
+        const btnCrop = document.getElementById('btnCrop');
+        const btnCapture = document.getElementById('btnCapture');
+        const startOverlay = document.getElementById('startOverlay');
+        const captureControls = document.getElementById('captureControls');
+        const windowNameDisplay = document.getElementById('windowName');
 
-        // --- Core Screen Capture Utility ---
-        async function getScreenCaptureDataUrl() {
-            if (!activeVideoStream || !activeVideoStream.active) {
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { displaySurface: "browser" },
+        let mediaStream = null;
+        let isCropping = false;
+        let isDrawing = false;
+        let startX, startY, currentX, currentY;
+        let savedCropArea = null;
+
+        btnStart.addEventListener('click', async () => {
+            try {
+                mediaStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: "always" },
                     audio: false
                 });
 
-                activeVideoStream = stream;
+                video.srcObject = mediaStream;
+                video.classList.remove('hidden');
                 
-                // Handle user stopping share natively
-                activeVideoStream.getVideoTracks()[0].addEventListener('ended', () => {
-                    stopActiveStream();
+                const track = mediaStream.getVideoTracks()[0];
+                windowNameDisplay.textContent = track.label || "Screen Shared";
+
+                track.onended = stopSharing;
+
+                startOverlay.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    captureControls.classList.remove('hidden');
+                    // Small delay to allow display flex to apply before transforming
+                    setTimeout(() => captureControls.classList.remove('translate-y-full'), 10);
+                }, 300);
+
+                // Setup canvas over video
+                video.addEventListener('loadedmetadata', () => {
+                    resizeCanvas();
+                    window.addEventListener('resize', resizeCanvas);
                 });
 
-                activeVideoElement = document.createElement('video');
-                activeVideoElement.srcObject = activeVideoStream;
-                activeVideoElement.autoplay = true;
-                activeVideoElement.muted = true;
-
-                await new Promise((resolve, reject) => {
-                    activeVideoElement.onloadedmetadata = () => {
-                        activeVideoElement.play().then(() => {
-                            setTimeout(resolve, 300); 
-                        }).catch(reject);
-                    };
-                });
-                
-                updateSessionUI(true);
+            } catch (err) {
+                console.error("Error starting screen share:", err);
+                alert("Could not start screen sharing. Please check permissions.");
             }
+        });
 
-            const canvas = document.createElement('canvas');
-            canvas.width = activeVideoElement.videoWidth;
-            canvas.height = activeVideoElement.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(activeVideoElement, 0, 0, canvas.width, canvas.height);
-            // Switched from PNG to optimized JPEG (80% quality) to save massive space
-            return canvas.toDataURL('image/jpeg', 0.8);
+        function resizeCanvas() {
+            const rect = video.getBoundingClientRect();
+            canvas.style.left = `${rect.left}px`;
+            canvas.style.top = `${rect.top}px`;
+            canvas.width = rect.width;
+            canvas.height = rect.height;
         }
 
-        function stopActiveStream() {
-            if (activeVideoStream) {
-                activeVideoStream.getTracks().forEach(track => track.stop());
-                activeVideoStream = null;
+        function stopSharing() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
             }
-            if (activeVideoElement) {
-                activeVideoElement.pause();
-                activeVideoElement.srcObject = null;
-            }
-            updateSessionUI(false);
+            video.srcObject = null;
+            video.classList.add('hidden');
+            canvas.classList.add('hidden');
+            
+            captureControls.classList.add('translate-y-full');
+            setTimeout(() => {
+                captureControls.classList.add('hidden');
+                startOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            }, 300);
+            
+            isCropping = false;
+            savedCropArea = null;
+            btnCapture.disabled = true;
+            btnCapture.classList.add('opacity-50', 'cursor-not-allowed');
+            window.removeEventListener('resize', resizeCanvas);
         }
 
-        function updateSessionUI(isActive) {
-            if (isActive) {
-                captureBtnLabel.textContent = "Instant Capture";
-                sessionBadge.classList.remove('hidden');
-                sessionBadge.classList.add('flex');
-                changeTabBtn.classList.remove('hidden');
-                captureBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
-                captureBtn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+        btnStop.addEventListener('click', stopSharing);
+
+        btnCrop.addEventListener('click', () => {
+            isCropping = !isCropping;
+            if (isCropping) {
+                canvas.classList.remove('hidden');
+                btnCrop.classList.replace('bg-slate-700', 'bg-blue-600');
+                btnCrop.classList.replace('text-white', 'text-white');
+                btnCrop.textContent = "Cancel Crop";
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawDarkOverlay();
             } else {
-                captureBtnLabel.textContent = "Select Tab to Capture";
-                sessionBadge.classList.add('hidden');
-                sessionBadge.classList.remove('flex');
-                changeTabBtn.classList.add('hidden');
-                captureBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
-                captureBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+                cancelCrop();
+            }
+        });
+
+        function cancelCrop() {
+            isCropping = false;
+            canvas.classList.add('hidden');
+            btnCrop.classList.replace('bg-blue-600', 'bg-slate-700');
+            btnCrop.textContent = "1. Draw Crop Area";
+            if (!savedCropArea) {
+                btnCapture.disabled = true;
+                btnCapture.classList.add('opacity-50', 'cursor-not-allowed');
             }
         }
 
-        changeTabBtn.addEventListener('click', stopActiveStream);
+        function drawDarkOverlay() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
-        // The core capture logic (Updated to use utility)
-        async function captureScreen() {
-            hideMessage();
-            try {
-                emptyState.classList.add('hidden');
-                previewImage.classList.add('hidden');
-                actionButtons.classList.add('hidden');
-                loadingState.classList.remove('hidden');
-                captureBtn.disabled = true;
-                captureBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        canvas.addEventListener('mousedown', (e) => {
+            if (!isCropping) return;
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+        });
 
-                currentImageURL = await getScreenCaptureDataUrl();
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            currentX = e.clientX - rect.left;
+            currentY = e.clientY - rect.top;
 
-                previewImage.src = currentImageURL;
-                loadingState.classList.add('hidden');
-                previewImage.classList.remove('hidden');
-                actionButtons.classList.remove('hidden');
-                captureBtn.classList.add('hidden'); 
-                previewContainer.classList.add('border-transparent');
-                previewContainer.classList.remove('border-dashed', 'border-slate-300', 'bg-gray-100');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawDarkOverlay();
+            
+            const width = currentX - startX;
+            const height = currentY - startY;
 
-            } catch (error) {
-                console.error("Capture failed:", error);
-                loadingState.classList.add('hidden');
-                emptyState.classList.remove('hidden');
-                captureBtn.disabled = false;
-                captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            ctx.clearRect(startX, startY, width, height);
+            ctx.strokeStyle = '#3b82f6'; // Blue 500
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, startY, width, height);
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            // Calculate final crop box (handle dragging in any direction)
+            const width = Math.abs(currentX - startX);
+            const height = Math.abs(currentY - startY);
+            const x = Math.min(startX, currentX);
+            const y = Math.min(startY, currentY);
+
+            // Calculate ratios relative to the natural video size
+            const rect = video.getBoundingClientRect();
+            const scaleX = video.videoWidth / rect.width;
+            const scaleY = video.videoHeight / rect.height;
+
+            savedCropArea = {
+                x: x * scaleX,
+                y: y * scaleY,
+                width: width * scaleX,
+                height: height * scaleY
+            };
+
+            btnCapture.disabled = false;
+            btnCapture.classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            // Auto-hide canvas after drawing
+            setTimeout(() => {
+                cancelCrop();
+                btnCrop.textContent = "1. Redraw Crop";
+            }, 300);
+        });
+
+        btnCapture.addEventListener('click', captureAndSave);
+
+        async function captureAndSave() {
+            if (!savedCropArea || !mediaStream) return;
+
+            // Visual feedback
+            btnCapture.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...`;
+
+            // Create a temporary canvas at full video resolution
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = savedCropArea.width;
+            tempCanvas.height = savedCropArea.height;
+            const tCtx = tempCanvas.getContext('2d');
+
+            // Draw just the cropped region
+            tCtx.drawImage(
+                video, 
+                savedCropArea.x, savedCropArea.y, savedCropArea.width, savedCropArea.height, // Source
+                0, 0, savedCropArea.width, savedCropArea.height // Destination
+            );
+
+            // Convert to blob and save
+            tempCanvas.toBlob(async (blob) => {
+                if (blob) {
+                    try {
+                        const date = new Date();
+                        const timeStr = `${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}`;
+                        
+                        // Suggest filename (Focus Mode uses special names if active)
+                        let suggestedName = `Map_Capture_${timeStr}.png`;
+                        if (window.currentFocusItemName) {
+                            suggestedName = `${window.currentFocusItemName}.png`;
+                        }
+
+                        // Use the newer File System Access API if available for a seamless save experience
+                        if (window.showSaveFilePicker) {
+                            const handle = await window.showSaveFilePicker({
+                                suggestedName: suggestedName,
+                                types: [{
+                                    description: 'PNG Image',
+                                    accept: {'image/png': ['.png']},
+                                }],
+                            });
+                            const writable = await handle.createWritable();
+                            await writable.write(blob);
+                            await writable.close();
+                        } else {
+                            // Fallback to classic download link
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = suggestedName;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+
+                        // Reset button
+                        btnCapture.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> 2. Snap & Save`;
+                        
+                        // IF IN FOCUS MODE, AUTO ADVANCE!
+                        if (window.isInFocusMode && typeof window.advanceFocusMode === 'function') {
+                            window.advanceFocusMode();
+                        }
+
+                    } catch (e) {
+                        console.error("Save cancelled or failed:", e);
+                        btnCapture.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> 2. Snap & Save`;
+                    }
+                }
+            }, 'image/png');
+        }
+
+        const parseInput = document.getElementById('parseInput');
+        const requestDateBox = document.getElementById('requestDate');
+
+        // Watch the textarea to intelligently enable/disable the Request Date field
+        parseInput.addEventListener('input', () => {
+            const text = parseInput.value.toLowerCase();
+            // Regex checks for "for 7 days", "for last 7 days", "from the previous 7 days", "for the 7 days", etc.
+            const needsDateMatcher = /(?:for|from)(?:\s+the)?(?:\s+(?:last|past|previous))?\s+(\d+)\s+days?/i;
+            
+            if (needsDateMatcher.test(text)) {
+                requestDateBox.classList.remove('opacity-60', 'pointer-events-none');
+                requestDateBox.classList.add('ring-2', 'ring-blue-500', 'border-transparent');
+            } else {
+                requestDateBox.classList.add('opacity-60', 'pointer-events-none');
+                requestDateBox.classList.remove('ring-2', 'ring-blue-500', 'border-transparent');
+            }
+        });
+
+        // 1. Regex to catch explicitly listed dates with commas (e.g., "11/06: 00:00 - 06:00, 06:00 - 12:00")
+        const explicitListRegex = /(\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?)[\s:]+((?:\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}(?:\s*,\s*)?)+)/gi;
+        
+        // 2. Regex for date ranges (e.g., 08/06/26 - 14/06/26 or 10/06/2026 – 16/06/2026) handles en/em dashes
+        const dateRangeRegex = /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\s*(?:-|–|—|to)\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i;
+
+        // 3. Regex for "for X days" format (Updated)
+        const daysRegex = /(?:for|from)(?:\s+the)?(?:\s+(?:last|past|previous))?\s+(\d+)\s+days?/i;
+
+        // 4. Regex for explicit single date + time frame (e.g. 27th April 2026 01:00am - 06:00am)
+        const specificTimeRegex = /((?:\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(?:\d{4})?)|(?:\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}))(?:.*?)(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:-|to|until)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i;
+
+        function parseDateString(dateStr, formatHint = 'dd/mm/yy') {
+            dateStr = dateStr.trim();
+            
+            // Try explicit plain text dates first (e.g. "27th April 2026")
+            const plainTextMatch = dateStr.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-zA-Z]+)\s+(\d{4})/i);
+            if(plainTextMatch) {
+                return new Date(`${plainTextMatch[2]} ${plainTextMatch[1]}, ${plainTextMatch[3]}`);
+            }
+
+            // Normal numeric split
+            let parts = dateStr.split(/[\/\-\.]/);
+            if (parts.length < 2) return null;
+            
+            let d, m, y;
+            d = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1; // JS months are 0-11
+            y = parts.length > 2 ? parseInt(parts[2], 10) : new Date().getFullYear();
+            
+            if (y < 100) {
+                y += 2000; // Assume 2000s for 2-digit years
+            }
+            
+            const date = new Date(y, m, d);
+            if (isNaN(date.getTime())) return null;
+            return date;
+        }
+
+        function formatDate(date) {
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = String(date.getFullYear()).slice(-2); // get last 2 digits
+            return `${d}/${m}/${y}`;
+        }
+
+        function formatTime(timeStr) {
+            if (!timeStr) return "00:00";
+            timeStr = timeStr.trim().toLowerCase();
+            let isPM = timeStr.includes('pm');
+            let isAM = timeStr.includes('am');
+            timeStr = timeStr.replace(/[a-z]/gi, '').trim();
+            
+            let parts = timeStr.split(':');
+            let h = parseInt(parts[0], 10);
+            let m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+
+            if (isPM && h < 12) h += 12;
+            if (isAM && h === 12) h = 0;
+
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        window.parsedSchedule = [];
+
+        document.getElementById('btnParse').addEventListener('click', () => {
+            const rawText = parseInput.value;
+            window.parsedSchedule = [];
+            let requestType = 'unknown';
+
+            // 1. Check for Explicit Lists (e.g. 11/06: 00:00-06:00, 06:00-12:00)
+            let listMatch;
+            const tempSchedule = [];
+            let foundExplicitList = false;
+            
+            // Reset regex state
+            explicitListRegex.lastIndex = 0; 
+            
+            while ((listMatch = explicitListRegex.exec(rawText)) !== null) {
+                foundExplicitList = true;
+                const baseDateStr = listMatch[1];
+                const baseDate = parseDateString(baseDateStr);
                 
-                if (error.message && error.message.includes('permissions policy')) {
-                    showMessage("Capture blocked: Run this file locally to enable.", true);
-                } else if (error.name !== 'NotAllowedError') {
-                    showMessage("Failed to capture: " + error.message, true);
-                } else {
-                    showMessage("Capture cancelled.", false);
-                    setTimeout(hideMessage, 3000);
+                if (baseDate) {
+                    const timeChunks = listMatch[2].split(',');
+                    timeChunks.forEach(chunk => {
+                        const times = chunk.split('-');
+                        if (times.length === 2) {
+                            tempSchedule.push({
+                                date: formatDate(baseDate),
+                                dateObj: baseDate,
+                                start: formatTime(times[0]),
+                                end: formatTime(times[1])
+                            });
+                        }
+                    });
                 }
             }
-        }
 
-        function downloadScreenshot() {
-            if (!currentImageURL) return;
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            // Update extension to jpg
-            const filename = `screenshot-${timestamp}.jpg`;
-            const a = document.createElement('a');
-            a.href = currentImageURL;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
+            if (foundExplicitList && tempSchedule.length > 0) {
+                window.parsedSchedule = tempSchedule;
+                requestType = 'explicit_list';
+            } 
+            // 2. Check for Date Range (08/06/26 - 14/06/26)
+            else if (dateRangeRegex.test(rawText)) {
+                const match = rawText.match(dateRangeRegex);
+                const startDate = parseDateString(match[1]);
+                const endDate = parseDateString(match[2]);
 
-        function resetCapture() {
-            currentImageURL = null;
-            previewImage.src = "";
-            previewImage.classList.add('hidden');
-            actionButtons.classList.add('hidden');
-            emptyState.classList.remove('hidden');
-            captureBtn.classList.remove('hidden');
-            captureBtn.disabled = false;
-            captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            previewContainer.classList.remove('border-transparent');
-            previewContainer.classList.add('border-dashed', 'border-slate-300', 'bg-gray-100');
-            hideMessage();
-        }
-
-        captureBtn.addEventListener('click', captureScreen);
-        downloadBtn.addEventListener('click', downloadScreenshot);
-        newCaptureBtn.addEventListener('click', resetCapture);
-
-        // --- Crop Overlay Logic ---
-        const cropOverlay = document.getElementById('cropOverlay');
-        const cropCanvas = document.getElementById('cropCanvas');
-        const cropCancelBtn = document.getElementById('cropCancelBtn');
-        const cropConfirmBtn = document.getElementById('cropConfirmBtn');
-        const cropCtx = cropCanvas.getContext('2d');
-
-        let cropImg = new Image();
-        let cropResolveFn = null;
-        let cropStartX, cropStartY, cropEndX, cropEndY, isCropping = false;
-        let lastCropCoords = null; // Stores coordinates for Quick Capture
-
-        function openCropOverlay(dataUrl) {
-            return new Promise((resolve) => {
-                cropResolveFn = resolve;
-                cropImg.onload = () => {
-                    cropCanvas.width = cropImg.naturalWidth;
-                    cropCanvas.height = cropImg.naturalHeight;
-                    cropStartX = 0; cropStartY = 0; cropEndX = 0; cropEndY = 0;
-                    drawCropState();
-                    cropOverlay.classList.remove('hidden');
-                    cropOverlay.classList.add('flex');
-                };
-                cropImg.src = dataUrl;
-            });
-        }
-
-        function closeCropOverlay() {
-            cropOverlay.classList.add('hidden');
-            cropOverlay.classList.remove('flex');
-            cropResolveFn = null;
-        }
-
-        cropCancelBtn.addEventListener('click', () => {
-            if(cropResolveFn) cropResolveFn(null);
-            closeCropOverlay();
-        });
-
-        cropConfirmBtn.addEventListener('click', () => {
-            if (cropStartX === cropEndX || cropStartY === cropEndY) {
-                if(cropResolveFn) cropResolveFn(cropImg.src);
-            } else {
-                const x = Math.min(cropStartX, cropEndX);
-                const y = Math.min(cropStartY, cropEndY);
-                const w = Math.abs(cropEndX - cropStartX);
-                const h = Math.abs(cropEndY - cropStartY);
-                
-                // Save coordinates for Quick Capture feature
-                lastCropCoords = { x, y, w, h };
-                
-                const resCanvas = document.createElement('canvas');
-                resCanvas.width = w;
-                resCanvas.height = h;
-                resCanvas.getContext('2d').drawImage(cropCanvas, x, y, w, h, 0, 0, w, h);
-                
-                // Switched cropped output to optimized JPEG
-                if(cropResolveFn) cropResolveFn(resCanvas.toDataURL('image/jpeg', 0.8));
+                if (startDate && endDate) {
+                    let current = new Date(startDate);
+                    while (current <= endDate) {
+                        const dateStr = formatDate(current);
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '00:00', end: '06:00' });
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '06:00', end: '12:00' });
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '12:00', end: '18:00' });
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '18:00', end: '23:59' });
+                        current.setDate(current.getDate() + 1);
+                    }
+                    requestType = 'range';
+                }
             }
-            closeCropOverlay();
+            // 3. Check for Specific Date + Time (27th April 2026 01:00am - 06:00am)
+            else if (specificTimeRegex.test(rawText)) {
+                // Remove conversational filler before matching to ensure clean extraction
+                const cleanText = rawText.replace(/between the hours/ig, '');
+                const match = cleanText.match(specificTimeRegex);
+                const date = parseDateString(match[1]);
+                
+                if (date) {
+                    const tStart = formatTime(match[2]);
+                    const tEnd = formatTime(match[3]);
+                    
+                    // Break down into 1-hour intervals for precision
+                    const startH = parseInt(tStart.split(':')[0]);
+                    const endH = parseInt(tEnd.split(':')[0]);
+                    
+                    if (startH < endH && (endH - startH) <= 12) { // Sanity check to avoid infinite loops
+                        for (let h = startH; h < endH; h++) {
+                            const chunkStart = `${String(h).padStart(2, '0')}:00`;
+                            // Handle 23:59 edge case
+                            const chunkEnd = (h+1 === 24) ? '23:59' : `${String(h+1).padStart(2, '0')}:00`;
+                            
+                            window.parsedSchedule.push({ 
+                                date: formatDate(date), 
+                                dateObj: date, 
+                                start: chunkStart, 
+                                end: chunkEnd 
+                            });
+                        }
+                    } else {
+                        // Fallback if math fails
+                        window.parsedSchedule.push({ date: formatDate(date), dateObj: date, start: tStart, end: tEnd });
+                    }
+                    requestType = 'specific';
+                }
+            }
+            // 4. Check for X Days Logic (Using Request Date Field as anchor)
+            else if (daysRegex.test(rawText)) {
+                const match = rawText.match(daysRegex);
+                const daysToGen = parseInt(match[1], 10);
+                
+                if (daysToGen > 0 && daysToGen <= 30) { // Sane limit
+                    // Read anchor date from the picker
+                    const reqDateVal = requestDateBox.value;
+                    let anchorDate = new Date();
+                    if (reqDateVal) {
+                        const [y,m,d] = reqDateVal.split('-');
+                        anchorDate = new Date(y, m-1, d);
+                    }
+
+                    // Calculate start date (anchor - X days)
+                    let current = new Date(anchorDate);
+                    current.setDate(current.getDate() - daysToGen);
+                    
+                    // Generate up to the anchor date
+                    for (let i = 0; i < daysToGen; i++) {
+                        current.setDate(current.getDate() + 1);
+                        const dateStr = formatDate(current);
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '00:00', end: '06:00' });
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '06:00', end: '12:00' });
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '12:00', end: '18:00' });
+                        window.parsedSchedule.push({ date: dateStr, dateObj: new Date(current), start: '18:00', end: '23:59' });
+                    }
+                    requestType = 'xdays';
+                }
+            }
+
+            renderSchedule();
         });
 
-        function getCanvasMousePosition(evt) {
-            const rect = cropCanvas.getBoundingClientRect();
-            const scaleX = cropCanvas.width / rect.width;
-            const scaleY = cropCanvas.height / rect.height;
-            return {
-                x: (evt.clientX - rect.left) * scaleX,
-                y: (evt.clientY - rect.top) * scaleY
-            };
-        }
-
-        cropCanvas.addEventListener('mousedown', e => {
-            const pos = getCanvasMousePosition(e);
-            cropStartX = pos.x;
-            cropStartY = pos.y;
-            cropEndX = cropStartX;
-            cropEndY = cropStartY;
-            isCropping = true;
-        });
-
-        cropCanvas.addEventListener('mousemove', e => {
-            if (!isCropping) return;
-            const pos = getCanvasMousePosition(e);
-            cropEndX = pos.x;
-            cropEndY = pos.y;
-            drawCropState();
-        });
-
-        cropCanvas.addEventListener('mouseup', () => { isCropping = false; });
-        cropCanvas.addEventListener('mouseleave', () => { isCropping = false; });
-
-        function drawCropState() {
-            cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-            cropCtx.drawImage(cropImg, 0, 0);
+        function renderSchedule() {
+            const outputDiv = document.getElementById('scheduleOutput');
+            const countLabel = document.getElementById('countOutput');
+            const limitWarning = document.getElementById('limitWarning');
+            const btnFocusModeToggle = document.getElementById('btnFocusModeToggle');
             
-            if (cropStartX !== cropEndX && cropStartY !== cropEndY) {
-                cropCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-                cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
-                
-                const x = Math.min(cropStartX, cropEndX);
-                const y = Math.min(cropStartY, cropEndY);
-                const w = Math.abs(cropEndX - cropStartX);
-                const h = Math.abs(cropEndY - cropStartY);
-                
-                cropCtx.clearRect(x, y, w, h);
-                cropCtx.drawImage(cropImg, x, y, w, h, x, y, w, h);
-                
-                cropCtx.strokeStyle = '#3b82f6';
-                cropCtx.lineWidth = Math.max(3, cropCanvas.width * 0.002);
-                cropCtx.strokeRect(x, y, w, h);
-            }
-        }
-
-
-        // --- Schedule Parser Logic ---
-        const scheduleInput = document.getElementById('scheduleInput');
-        const parseBtn = document.getElementById('parseBtn');
-        const scheduleOutput = document.getElementById('scheduleOutput');
-        const parsedCount = document.getElementById('parsedCount');
-        const bulkOutputContainer = document.getElementById('bulkOutputContainer');
-        const bulkOutputText = document.getElementById('bulkOutputText');
-        const copyBulkBtn = document.getElementById('copyBulkBtn');
-        const emailTemplateContainer = document.getElementById('emailTemplateContainer');
-        const emailOutputText = document.getElementById('emailOutputText');
-        const copyEmailBtn = document.getElementById('copyEmailBtn');
-        const requestDateInput = document.getElementById('requestDateInput');
-
-        // Set default request date to today
-        const today = new Date();
-        requestDateInput.value = today.toISOString().split('T')[0];
-
-        // Dynamic UI feedback for the Request Date field
-        const requestDateContainer = document.getElementById('requestDateContainer');
-        
-        scheduleInput.addEventListener('input', () => {
-            const text = scheduleInput.value;
-            const daysMatch = text.match(/(?:for|from)\s+(?:the\s+)?(?:(?:last|past|previous)\s+)?(\d+)\s+days?/i);
-            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(text) || /AM|PM/i.test(text) || /NOON|MIDNIGHT/i.test(text);
+            outputDiv.innerHTML = ''; // Clear
             
-            if (daysMatch && !hasExplicitTimes) {
-                // Highlight field: Active mode
-                requestDateContainer.classList.remove('opacity-50', 'grayscale', 'border-slate-300', 'dark:border-slate-600');
-                requestDateContainer.classList.add('ring-2', 'ring-blue-500/30', 'border-blue-400', 'dark:border-blue-500');
-            } else {
-                // Dim field: Inactive mode
-                requestDateContainer.classList.add('opacity-50', 'grayscale', 'border-slate-300', 'dark:border-slate-600');
-                requestDateContainer.classList.remove('ring-2', 'ring-blue-500/30', 'border-blue-400', 'dark:border-blue-500');
-            }
-        });
-
-        // Stats elements
-        const parserStats = document.getElementById('parserStats');
-        const reqMapsBadge = document.getElementById('reqMapsBadge');
-        const genMapsBadge = document.getElementById('genMapsBadge');
-        const totalHoursBadge = document.getElementById('totalHoursBadge');
-        const limitWarning = document.getElementById('limitWarning');
-        const downloadAllBtn = document.getElementById('downloadAllBtn');
-        const copyAllMapsBtn = document.getElementById('copyAllMapsBtn');
-
-        // State trackers
-        let generatedMapIndices = new Set();
-        let currentTotalMaps = 0;
-        let currentTotalHours = 0;
-        let capturedMapsData = {};
-
-        // Focus Mode Global States
-        let globalParsedItems = [];
-        let isFocusMode = false;
-        let fmCurrentIndex = 0;
-
-        // Toggle Focus Mode
-        const toggleViewBtn = document.getElementById('toggleViewBtn');
-        const focusModeContainer = document.getElementById('focusModeContainer');
-        
-        toggleViewBtn.addEventListener('click', () => {
-            isFocusMode = !isFocusMode;
-            if (isFocusMode) {
-                toggleViewBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> List View';
-                scheduleOutput.classList.add('hidden');
-                focusModeContainer.classList.remove('hidden');
-                focusModeContainer.classList.add('flex');
-                updateFocusModeUI();
-            } else {
-                toggleViewBtn.innerHTML = '🎯 Focus Mode';
-                scheduleOutput.classList.remove('hidden');
-                focusModeContainer.classList.add('hidden');
-                focusModeContainer.classList.remove('flex');
-            }
-        });
-
-        function updateStatsUI() {
-            parserStats.classList.remove('hidden');
-            genMapsBadge.textContent = `${generatedMapIndices.size} Generated`;
-            reqMapsBadge.textContent = `${currentTotalMaps} Maps Required`;
-            totalHoursBadge.textContent = `${currentTotalHours.toFixed(1)} Total Hours`;
-
-            if (currentTotalMaps > 28) {
-                reqMapsBadge.className = 'px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400 transition-colors border border-red-200 dark:border-red-800';
+            // Limit to 28 maps max for safety/performance
+            if (window.parsedSchedule.length > 28) {
+                window.parsedSchedule = window.parsedSchedule.slice(0, 28);
                 limitWarning.classList.remove('hidden');
             } else {
-                reqMapsBadge.className = 'px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent';
                 limitWarning.classList.add('hidden');
             }
 
-            if (generatedMapIndices.size > 0) {
-                downloadAllBtn.classList.remove('hidden');
-                downloadAllBtn.classList.add('flex');
-                copyAllMapsBtn.classList.remove('hidden');
-                copyAllMapsBtn.classList.add('flex');
-            } else {
-                downloadAllBtn.classList.add('hidden');
-                downloadAllBtn.classList.remove('flex');
-                copyAllMapsBtn.classList.add('hidden');
-                copyAllMapsBtn.classList.remove('flex');
-            }
-        }
+            countLabel.textContent = window.parsedSchedule.length;
 
-        function getHoursDiff(start, end) {
-            if (!start || !end) return 0;
-            const [sH, sM] = start.split(':').map(Number);
-            let eH, eM;
-            
-            // Treat 23:59 as a full 24 hours for accurate interval math
-            if (end === '23:59') {
-                eH = 24; 
-                eM = 0;
-            } else {
-                [eH, eM] = end.split(':').map(Number);
-            }
-            
-            let diff = (eH + eM/60) - (sH + sM/60);
-            if (diff < 0) diff += 24; // Handle overnight
-            return parseFloat(diff.toFixed(2));
-        }
-
-        function parseFormattedDate(dateStr) {
-            // Handle DD/MM or DD/MM/YY format dynamically
-            if (dateStr.includes('/')) {
-                let parts = dateStr.split('/');
-                let day = parts[0];
-                let month = parts[1];
-                let year = parts[2] ? parts[2] : '2026';
-                if (year.length === 2) year = '20' + year; // Convert 26 to 2026
-                return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
-            }
-            
-            let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?:\s+(\d{2,4}))?/i);
-            if (!matches) return dateStr;
-            let day = parseInt(matches[1], 10);
-            let monthStr = matches[2].toLowerCase();
-            let monthMap = {
-                january:1, jan:1, february:2, feb:2, march:3, mar:3, april:4, apr:4, may:5,
-                june:6, jun:6, july:7, jul:7, august:8, aug:8, september:9, sep:9, october:10, oct:10,
-                november:11, nov:11, december:12, dec:12
-            };
-            let month = monthMap[monthStr] || 1;
-            let year = matches[3] ? matches[3] : '2026'; 
-            if (year.length === 2) year = '20' + year;
-            return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-        }
-
-        function parseFormattedTime(timeStr) {
-            let times = timeStr.split(/\s*-\s*|\s+to\s+/i).map(t => t.trim());
-            
-            let formatted = times.map(t => {
-                let clean = t.toUpperCase().replace(/\s/g, '');
-                if (clean === '12NOON' || clean === 'NOON') return '12:00';
-                if (clean === '12MIDNIGHT' || clean === 'MIDNIGHT') return '00:00';
-                
-                let m = clean.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM)?$/);
-                if (!m) return t;
-                let hrs = parseInt(m[1], 10);
-                let mins = m[2] ? m[2] : '00';
-                let ampm = m[3];
-                
-                if (ampm === 'PM' && hrs < 12) hrs += 12;
-                if (ampm === 'AM' && hrs === 12) hrs = 0;
-                
-                return `${hrs.toString().padStart(2, '0')}:${mins}`;
-            });
-            return formatted; // Return the array of times
-        }
-
-        function parseSchedule(input) {
-            // 1. Check for automated formats without explicit times
-            const daysMatch = input.match(/(?:for|from)\s+(?:the\s+)?(?:(?:last|past|previous)\s+)?(\d+)\s+days?/i);
-            const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:-|–|—|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
-            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT/i.test(input);
-
-            const intervals = [
-                { start: "00:00", end: "06:00", hours: 6 },
-                { start: "06:00", end: "12:00", hours: 6 },
-                { start: "12:00", end: "18:00", hours: 6 },
-                { start: "18:00", end: "23:59", hours: 6 }
-            ];
-
-            // Retrospective: Generate the past N days chronologically, ending on the Request Date
-            if (daysMatch && !hasExplicitTimes) {
-                let results = [];
-                let numDays = parseInt(daysMatch[1], 10);
-                
-                const reqDateVal = requestDateInput.value;
-                const baseRequestDate = reqDateVal ? new Date(reqDateVal) : new Date();
-                
-                // i goes from numDays - 1 down to 0 to include the baseRequestDate as the final day
-                for (let i = numDays - 1; i >= 0; i--) {
-                    let d = new Date(baseRequestDate);
-                    d.setDate(baseRequestDate.getDate() - i); 
-                    
-                    let dd = d.getDate().toString().padStart(2, '0');
-                    let mm = (d.getMonth() + 1).toString().padStart(2, '0');
-                    let yyyy = d.getFullYear();
-                    let formattedDate = `${dd}/${mm}/${yyyy}`;
-
-                    intervals.forEach(interval => {
-                        results.push({
-                            date: formattedDate,
-                            start: interval.start,
-                            end: interval.end,
-                            hours: interval.hours
-                        });
-                    });
-                }
-                return results;
-            }
-
-            // Date Range: Generate 4 intervals per day from start to end date
-            if (rangeMatch && !hasExplicitTimes) {
-                let results = [];
-                
-                function parseDatePart(dateStr) {
-                    let parts = dateStr.split('/');
-                    let day = parseInt(parts[0], 10);
-                    let month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
-                    let year = 2026;
-                    if (parts[2]) {
-                        year = parseInt(parts[2], 10);
-                        if (year < 100) year += 2000;
-                    }
-                    return new Date(year, month, day);
-                }
-
-                let startDate = parseDatePart(rangeMatch[1]);
-                let endDate = parseDatePart(rangeMatch[2]);
-                
-                if (startDate > endDate) {
-                    let temp = startDate; startDate = endDate; endDate = temp;
-                }
-
-                let current = new Date(startDate);
-                while (current <= endDate) {
-                    let dd = current.getDate().toString().padStart(2, '0');
-                    let mm = (current.getMonth() + 1).toString().padStart(2, '0');
-                    let yyyy = current.getFullYear();
-                    let formattedDate = `${dd}/${mm}/${yyyy}`;
-
-                    intervals.forEach(interval => {
-                        results.push({
-                            date: formattedDate,
-                            start: interval.start,
-                            end: interval.end,
-                            hours: interval.hours
-                        });
-                    });
-                    current.setDate(current.getDate() + 1);
-                }
-                return results;
-            }
-
-            // 2. Original Regex to find explicit dates and times
-            const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)(?:\s+\d{2,4})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/gi;
-            
-            let matches = [...input.matchAll(dateRegex)];
-            if (matches.length === 0) return [];
-
-            let isSingleDay = matches.length === 1;
-
-            let results = [];
-            for (let i = 0; i < matches.length; i++) {
-                let currentDate = matches[i][0];
-                let startIdx = matches[i].index + currentDate.length;
-                let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
-                let timesStr = input.substring(startIdx, endIdx);
-
-                timesStr = timesStr.replace(/FROM|between the hours of|between the hours|between/gi, '').replace(/^[:\s]+/, '').trim();
-                let times = timesStr.split(/,| and | & |\n/i).map(t => t.trim()).filter(t => t.length > 0);
-
-                times.forEach(time => {
-                    let cleanTime = time.replace(/[;:.]$/, '').trim();
-                    if (cleanTime) {
-                        let formattedDate = parseFormattedDate(currentDate);
-                        let formattedTimesArray = parseFormattedTime(cleanTime);
-                        
-                        let start = formattedTimesArray[0];
-                        let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
-                        
-                        // Prevent "00:00" from displaying as end of day
-                        if (end === '00:00' || end === '24:00') {
-                            end = '23:59';
-                        }
-                        
-                        let totalHours = getHoursDiff(start, end);
-
-                        // Hourly Breakdown Logic for explicit times
-                        // Only break down if it's a single day request AND they haven't manually provided multiple chunks
-                        if (end && totalHours > 0 && isSingleDay && times.length === 1) {
-                            let sH = parseInt(start.split(':')[0], 10);
-                            let sM = parseInt(start.split(':')[1], 10);
-                            let startMins = sH * 60 + sM;
-                            
-                            let eH, eM;
-                            if (end === '23:59') {
-                                eH = 24; eM = 0; // use 24:00 for the mathematical end boundary
-                            } else {
-                                eH = parseInt(end.split(':')[0], 10);
-                                eM = parseInt(end.split(':')[1], 10);
-                            }
-                            let endMins = eH * 60 + eM;
-                            if (endMins <= startMins) endMins += 24 * 60; // handle overnight wrap
-                            
-                            while (startMins < endMins) {
-                                let chunkEndMins = Math.min(startMins + 60, endMins); // 1 hour step
-                                
-                                let curH = Math.floor(startMins / 60) % 24;
-                                let curM = startMins % 60;
-                                let nextH = Math.floor(chunkEndMins / 60) % 24;
-                                let nextM = chunkEndMins % 60;
-                                
-                                let curStartStr = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
-                                let curEndStr = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
-                                
-                                if (chunkEndMins % 1440 === 0 && chunkEndMins > 0) {
-                                    curEndStr = '23:59';
-                                }
-                                
-                                let chunkHours = getHoursDiff(curStartStr, curEndStr);
-                                
-                                results.push({
-                                    date: formattedDate,
-                                    start: curStartStr,
-                                    end: curEndStr,
-                                    hours: chunkHours
-                                });
-                                
-                                startMins = chunkEndMins;
-                            }
-                        } else {
-                            results.push({
-                                date: formattedDate,
-                                start: start,
-                                end: end,
-                                hours: totalHours
-                            });
-                        }
-                    }
-                });
-            }
-            return results;
-        }
-
-        parseBtn.addEventListener('click', () => {
-            const text = scheduleInput.value;
-            const parsedItems = parseSchedule(text);
-            
-            // Set globals
-            globalParsedItems = parsedItems;
-            fmCurrentIndex = 0;
-            lastCropCoords = null; // Reset crop memory on new parse
-            
-            scheduleOutput.innerHTML = ''; 
-            bulkOutputContainer.classList.add('hidden');
-            emailTemplateContainer.classList.add('hidden');
-            parserStats.classList.add('hidden');
-            limitWarning.classList.add('hidden');
-            
-            // Reset Stats
-            generatedMapIndices.clear();
-            capturedMapsData = {};
-            currentTotalMaps = 0;
-            currentTotalHours = 0;
-            downloadAllBtn.classList.add('hidden');
-            downloadAllBtn.classList.remove('flex');
-            copyAllMapsBtn.classList.add('hidden');
-            copyAllMapsBtn.classList.remove('flex');
-            
-            if (parsedItems.length === 0) {
-                toggleViewBtn.classList.add('hidden');
-                toggleViewBtn.classList.remove('flex');
-                scheduleOutput.innerHTML = `
-                    <div class="h-full flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500 flex-grow">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-red-400 opacity-50"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                        <p class="text-sm">No dates/times found. Please check your formatting.</p>
-                    </div>`;
+            if (window.parsedSchedule.length === 0) {
+                btnFocusModeToggle.classList.add('hidden');
+                outputDiv.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center py-20 text-slate-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-slate-700"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <p class="text-sm font-medium">Could not extract clear dates.</p>
+                        <p class="text-xs mt-1">Check formatting or try manual entry.</p>
+                    </div>
+                `;
                 return;
             }
 
             // Show Focus Mode Button
-            toggleViewBtn.classList.remove('hidden');
-            toggleViewBtn.classList.add('flex');
+            btnFocusModeToggle.classList.remove('hidden');
 
-            // Calculate overall stats
-            currentTotalMaps = parsedItems.length;
-            currentTotalHours = parsedItems.reduce((sum, item) => sum + item.hours, 0);
-            updateStatsUI();
-
-            // --- Generate Bulk Text List ---
-            const bulkLines = parsedItems.map(item => {
-                if (item.end) {
-                    return `${item.date} -${item.start}-${item.end}`;
-                }
-                return `${item.date} -${item.start}`;
-            });
-            
-            const joinedBulkLines = bulkLines.join('\n');
-            bulkOutputText.value = joinedBulkLines;
-            bulkOutputContainer.classList.remove('hidden');
-
-            // --- Generate Email Template ---
-            const emailTemplate = `Hi,\n\nFind attached to this email a copy of the Trail data requested.\n\nAll responses or follow-ups must be sent via a new Trail request. This email chain is not monitored.\n\nKind regards,`;
-            emailOutputText.value = emailTemplate;
-            emailTemplateContainer.classList.remove('hidden');
-
-            // Render List View Rows
-            parsedItems.forEach((item, index) => {
+            window.parsedSchedule.forEach((item, index) => {
                 const row = document.createElement('div');
-                row.id = `row-${index}`; // Set ID for Focus Mode syncing
-                row.className = 'flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg animate-fade-in';
-                
-                const startFull = `${item.date} ${item.start}`;
-                const endFull = item.end ? `${item.date} ${item.end}` : null;
-                const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                row.className = "glass-panel p-4 rounded-xl flex items-center justify-between border border-slate-700/50 hover:bg-slate-800 transition-colors animate-fade-in group";
+                row.style.animationDelay = `${index * 30}ms`;
 
-                // Hour interval badge UI
-                const intervalBadge = item.hours > 0 
-                    ? `<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 text-xs font-bold rounded-full ml-2 border border-indigo-200 dark:border-indigo-800">${item.hours} hr interval</span>`
-                    : '';
-
-                // Top Text + Actions Bar
-                const topBar = document.createElement('div');
-                topBar.className = 'flex flex-wrap items-center justify-between gap-4';
-
-                const textSpan = document.createElement('span');
-                textSpan.className = 'font-bold text-lg text-slate-800 dark:text-slate-100 break-words tracking-tight flex items-center flex-wrap gap-y-1';
-                textSpan.innerHTML = `${displayText} ${intervalBadge}`;
-                
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'flex flex-wrap gap-2 items-center';
-
-                function createCopyBtn(label, textToCopy) {
-                    const btn = document.createElement('button');
-                    btn.className = 'px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap';
-                    btn.textContent = label;
-                    
-                    btn.addEventListener('click', () => {
-                        const textArea = document.createElement("textarea");
-                        textArea.value = textToCopy;
-                        textArea.style.position = "absolute";
-                        textArea.style.left = "-9999px";
-                        document.body.appendChild(textArea);
-                        textArea.select();
-                        document.execCommand("copy");
-                        textArea.remove();
-                        
-                        btn.textContent = 'Copied!';
-                        btn.classList.add('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
-                        setTimeout(() => {
-                            btn.textContent = label;
-                            btn.classList.remove('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
-                        }, 2000);
-                    });
-                    return btn;
-                }
-
-                actionsDiv.appendChild(createCopyBtn('Copy Start', startFull));
-                if (endFull) {
-                    actionsDiv.appendChild(createCopyBtn('Copy End', endFull));
-                }
-
-                const captureMapBtn = document.createElement('button');
-                captureMapBtn.id = `capture-btn-${index}`; // Set ID for Focus Mode syncing
-                captureMapBtn.className = 'px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border border-transparent rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap flex items-center gap-2 shadow-sm';
-                captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
-
-                actionsDiv.appendChild(captureMapBtn);
-                topBar.appendChild(textSpan);
-                topBar.appendChild(actionsDiv);
-                row.appendChild(topBar);
-
-                // Image Section (Hidden initially)
-                const imageSection = document.createElement('div');
-                imageSection.className = 'map-image-section hidden flex-col items-start gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600';
-                
-                const imgPreview = document.createElement('img');
-                imgPreview.className = 'map-preview-img max-w-full h-auto max-h-[250px] object-contain rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm';
-                
-                const downloadImgBtn = document.createElement('button');
-                downloadImgBtn.className = 'map-download-btn flex items-center gap-1.5 text-sm px-4 py-1.5 bg-slate-200 dark:bg-slate-600 rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 font-medium text-slate-800 dark:text-slate-100 transition-colors';
-                downloadImgBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Map`;
-                
-                imageSection.appendChild(imgPreview);
-                imageSection.appendChild(downloadImgBtn);
-                row.appendChild(imageSection);
-
-                // Map capture interaction
-                captureMapBtn.addEventListener('click', async () => {
-                    try {
-                        captureMapBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Capturing...`;
-                        captureMapBtn.disabled = true;
-                        
-                        const fullScreenshot = await getScreenCaptureDataUrl();
-                        const croppedScreenshot = await openCropOverlay(fullScreenshot);
-                        
-                        if (croppedScreenshot) {
-                            imgPreview.src = croppedScreenshot;
-                            imageSection.classList.remove('hidden');
-                            imageSection.classList.add('flex');
-                            captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
-                            
-                            // Change extension to .jpg
-                            const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-                            
-                            // Save map data for the "Download All" feature
-                            capturedMapsData[index] = {
-                                filename: filename,
-                                dataUrl: croppedScreenshot,
-                                displayText: displayText
-                            };
-                            
-                            // Update Generated Map Stats
-                            generatedMapIndices.add(index);
-                            updateStatsUI();
-                            
-                            downloadImgBtn.onclick = () => {
-                                const a = document.createElement('a');
-                                a.href = croppedScreenshot;
-                                a.download = filename;
-                                a.click();
-                            };
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        if (err.message && err.message.includes('permissions policy')) {
-                            alert("Capture blocked: Run locally.");
-                        }
-                    } finally {
-                        captureMapBtn.disabled = false;
-                        if(!imgPreview.src) {
-                            captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
-                        }
-                    }
-                });
-
-                scheduleOutput.appendChild(row);
+                row.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:text-blue-400 transition-colors">
+                            ${index + 1}
+                        </div>
+                        <div>
+                            <div class="font-bold text-white tracking-wide">${item.date}</div>
+                            <div class="text-sm text-slate-400 flex items-center gap-2 mt-1">
+                                <span class="bg-slate-900 px-2 py-0.5 rounded text-xs font-mono border border-slate-800">${item.start}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                                <span class="bg-slate-900 px-2 py-0.5 rounded text-xs font-mono border border-slate-800">${item.end}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="copy-btn opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all" onclick="copyTimes('${item.start}', '${item.end}', this)" title="Copy Times (Tab Separated)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                `;
+                outputDiv.appendChild(row);
             });
+        }
+
+        // Global Copy Function for the List View
+        window.copyTimes = function(start, end, btnElement) {
+            const textToCopy = `${start}\t${end}`;
             
-            // Initialize Focus Mode behind the scenes
-            if(isFocusMode) updateFocusModeUI();
+            // Hidden textarea method for maximum compatibility
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempTextArea);
+
+            // Visual feedback
+            const originalHTML = btnElement.innerHTML;
+            btnElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            setTimeout(() => {
+                btnElement.innerHTML = originalHTML;
+            }, 1000);
+        };
+
+        const listContainer = document.getElementById('scheduleOutput');
+        const focusModeContainer = document.getElementById('focusModeContainer');
+        const btnFocusModeToggle = document.getElementById('btnFocusModeToggle');
+        const btnExitFocusMode = document.getElementById('btnExitFocusMode');
+        
+        let currentFocusIndex = 0;
+        window.isInFocusMode = false;
+
+        btnFocusModeToggle.addEventListener('click', enterFocusMode);
+        btnExitFocusMode.addEventListener('click', exitFocusMode);
+
+        function enterFocusMode() {
+            if (window.parsedSchedule.length === 0) return;
+            window.isInFocusMode = true;
+            currentFocusIndex = 0;
+            
+            // Automatically switch back to the capture screen in the background!
+            btnContinuous.click(); 
+            
+            // But visually show the Focus Mode card on top
+            listContainer.classList.add('hidden');
+            focusModeContainer.classList.remove('hidden');
+            focusModeContainer.classList.add('flex');
+            
+            // Check if we have a saved crop to show Quick Capture button
+            const quickCaptureBtn = document.getElementById('fmQuickCaptureBtn');
+            const captureMapBtn = document.getElementById('fmCaptureMapBtn');
+            
+            if (savedCropArea) {
+                quickCaptureBtn.classList.remove('hidden');
+                captureMapBtn.classList.add('hidden');
+            } else {
+                quickCaptureBtn.classList.add('hidden');
+                captureMapBtn.classList.remove('hidden');
+            }
+
+            updateFocusUI();
+        }
+
+        function exitFocusMode() {
+            window.isInFocusMode = false;
+            focusModeContainer.classList.add('hidden');
+            focusModeContainer.classList.remove('flex');
+            listContainer.classList.remove('hidden');
+            
+            // Switch back to parser view
+            btnParser.click();
+        }
+
+        function updateFocusUI() {
+            const item = window.parsedSchedule[currentFocusIndex];
+            if (!item) return;
+
+            document.getElementById('fmDate').textContent = item.date;
+            document.getElementById('fmStartTime').textContent = item.start;
+            document.getElementById('fmEndTime').textContent = item.end;
+            
+            document.getElementById('fmCurrentCount').textContent = currentFocusIndex + 1;
+            document.getElementById('fmTotalCount').textContent = window.parsedSchedule.length;
+            
+            const progress = ((currentFocusIndex + 1) / window.parsedSchedule.length) * 100;
+            document.getElementById('fmProgressBar').style.width = `${progress}%`;
+
+            // Setup export name
+            const cleanDate = item.date.replace(/\//g, '-');
+            const cleanStart = item.start.replace(':', '');
+            const cleanEnd = item.end.replace(':', '');
+            window.currentFocusItemName = `Map_${cleanDate}_${cleanStart}_${cleanEnd}`;
+
+            // Buttons state
+            document.getElementById('fmPrevBtn').disabled = (currentFocusIndex === 0);
+            
+            if (currentFocusIndex === window.parsedSchedule.length - 1) {
+                document.getElementById('fmSkipBtn').innerHTML = `Finish <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                document.getElementById('fmSkipBtn').classList.add('text-green-400');
+            } else {
+                document.getElementById('fmSkipBtn').innerHTML = `Skip <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+                document.getElementById('fmSkipBtn').classList.remove('text-green-400');
+            }
+        }
+
+        // Expose advance function globally so captureAndSave can call it
+        window.advanceFocusMode = function() {
+            if (currentFocusIndex < window.parsedSchedule.length - 1) {
+                currentFocusIndex++;
+                updateFocusUI();
+            } else {
+                alert("🎉 All maps captured successfully!");
+                exitFocusMode();
+            }
+        };
+
+        // Focus Mode Actions
+        document.getElementById('fmPrevBtn').addEventListener('click', () => {
+            if (currentFocusIndex > 0) {
+                currentFocusIndex--;
+                updateFocusUI();
+            }
         });
 
-        // --- Focus Mode Core Logic ---
-        const fmStep = document.getElementById('fmStep');
-        const fmTotal = document.getElementById('fmTotal');
-        const fmDisplayText = document.getElementById('fmDisplayText');
-        const fmCopyStartBtn = document.getElementById('fmCopyStartBtn');
-        const fmCopyEndBtn = document.getElementById('fmCopyEndBtn');
-        const fmCopyBothBtn = document.getElementById('fmCopyBothBtn');
-        const fmCaptureBtn = document.getElementById('fmCaptureBtn');
-        const fmCaptureText = document.getElementById('fmCaptureText');
-        const fmQuickCaptureBtn = document.getElementById('fmQuickCaptureBtn');
-        const fmPrevBtn = document.getElementById('fmPrevBtn');
-        const fmSkipBtn = document.getElementById('fmSkipBtn');
-        const fmProgressBar = document.getElementById('fmProgressBar');
+        document.getElementById('fmSkipBtn').addEventListener('click', () => {
+            window.advanceFocusMode();
+        });
 
-        function updateFocusModeUI() {
-            if (globalParsedItems.length === 0) return;
-            
-            if (fmCurrentIndex >= globalParsedItems.length) {
-                fmDisplayText.innerHTML = "🎉 All Maps Captured!";
-                fmCopyStartBtn.style.display = 'none';
-                fmCopyEndBtn.style.display = 'none';
-                fmCopyBothBtn.style.display = 'none';
-                fmCaptureBtn.style.display = 'none';
-                fmStep.textContent = globalParsedItems.length;
-                fmProgressBar.style.width = '100%';
+        document.getElementById('fmCaptureMapBtn').addEventListener('click', () => {
+            // Check if screen share is active
+            if (!mediaStream) {
+                alert("Please start screen sharing first!");
+                btnStart.click();
                 return;
             }
+            // Trigger the manual crop button
+            btnCrop.click();
+        });
 
-            const item = globalParsedItems[fmCurrentIndex];
-            const startFull = `${item.date} ${item.start}`;
-            const endFull = item.end ? `${item.date} ${item.end}` : null;
-            const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
-
-            fmStep.textContent = fmCurrentIndex + 1;
-            fmTotal.textContent = globalParsedItems.length;
-            // Progress bar
-            fmProgressBar.style.width = `${((fmCurrentIndex) / globalParsedItems.length) * 100}%`;
-
-            fmDisplayText.innerHTML = `${item.date} <br> <span class="text-blue-600 dark:text-blue-400">${item.start}${item.end ? ' - ' + item.end : ''}</span>`;
-
-            fmCopyStartBtn.style.display = 'block';
-            fmCopyEndBtn.style.display = item.end ? 'block' : 'none';
-            fmCopyBothBtn.style.display = item.end ? 'block' : 'none';
-            fmCaptureBtn.style.display = 'flex';
-
-            // Show Quick Capture if we have memorized coordinates
-            if (lastCropCoords) {
-                fmQuickCaptureBtn.classList.remove('hidden');
-                fmQuickCaptureBtn.classList.add('flex');
-                fmCaptureText.textContent = "Manual Crop";
-            } else {
-                fmQuickCaptureBtn.classList.add('hidden');
-                fmQuickCaptureBtn.classList.remove('flex');
-                fmCaptureText.textContent = "Capture & Advance";
+        document.getElementById('fmQuickCaptureBtn').addEventListener('click', () => {
+            if (!savedCropArea) {
+                alert("Please draw a crop area first using 'Draw Crop & Capture' on the first map.");
+                return;
             }
+            btnCapture.click(); // Instantly takes screenshot using saved crop and auto-advances
+        });
 
-            // Check if map is already captured
-            if (generatedMapIndices.has(fmCurrentIndex)) {
-                fmCaptureBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
-                fmCaptureBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-500');
-                if(!lastCropCoords) fmCaptureText.textContent = "Captured (Retake)";
-            } else {
-                fmCaptureBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
-                fmCaptureBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
-            }
-
-            fmPrevBtn.disabled = fmCurrentIndex === 0;
-            fmSkipBtn.disabled = fmCurrentIndex === globalParsedItems.length - 1;
-
-            // Setup copy events
-            fmCopyStartBtn.onclick = () => doFocusCopy(fmCopyStartBtn, startFull, 'Copy Start');
-            fmCopyEndBtn.onclick = () => doFocusCopy(fmCopyEndBtn, endFull, 'Copy End');
-            fmCopyBothBtn.onclick = () => {
-                const combined = `${startFull}\t${endFull}`;
-                doFocusCopy(fmCopyBothBtn, combined, '⚡ Tip: Click to Copy Both (Tab-Separated)');
-            };
-        }
-
-        function doFocusCopy(btn, text, originalText) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "absolute";
-            textArea.style.left = "-9999px";
-            document.body.appendChild(textArea);
-            textArea.select();
+        document.getElementById('fmCopyBothBtn').addEventListener('click', function() {
+            const item = window.parsedSchedule[currentFocusIndex];
+            if (!item) return;
+            
+            const btn = this;
+            const textToCopy = `${item.start}\t${item.end}`;
+            
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
             document.execCommand("copy");
-            textArea.remove();
+            document.body.removeChild(tempTextArea);
 
-            btn.textContent = '✅ Copied!';
-            btn.classList.add('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+            btn.classList.add('bg-green-600', 'border-green-500');
+            btn.classList.remove('bg-slate-700', 'border-slate-600');
+            
             setTimeout(() => {
-                btn.textContent = originalText;
-                btn.classList.remove('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('bg-green-600', 'border-green-500');
+                btn.classList.add('bg-slate-700', 'border-slate-600');
             }, 1000);
+        });
+    </script>
+
+    <!-- NEW BACKGROUND SCRIPT: Auto-Copy Lookahead Logic -->
+    <script>
+        // --- AUTO-COPY NEXT FEATURE ---
+        // This function seamlessly copies the start and end times of the NEXT map in the queue
+        // so it's instantly ready in your clipboard the moment the screen advances.
+        function autoCopyNextFocusItem() {
+            try {
+                // Look ahead to the next item
+                if (typeof currentFocusIndex !== 'undefined' && window.parsedSchedule) {
+                    const nextIndex = currentFocusIndex + 1;
+                    
+                    if (nextIndex < window.parsedSchedule.length) {
+                        const nextItem = window.parsedSchedule[nextIndex];
+                        const textToCopy = `${nextItem.start}\t${nextItem.end}`;
+                        
+                        // Securely copy to clipboard using the hidden text area method 
+                        const tempTextArea = document.createElement("textarea");
+                        tempTextArea.value = textToCopy;
+                        tempTextArea.style.position = "fixed";
+                        tempTextArea.style.opacity = "0";
+                        document.body.appendChild(tempTextArea);
+                        tempTextArea.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(tempTextArea);
+                        
+                        // Show a tiny visual indicator on the Copy button
+                        const copyBtn = document.getElementById('fmCopyBothBtn');
+                        if (copyBtn) {
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Auto-Copied Next!';
+                            copyBtn.classList.add('text-green-400');
+                            setTimeout(() => {
+                                copyBtn.innerHTML = originalText;
+                                copyBtn.classList.remove('text-green-400');
+                            }, 1500);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Auto-copy next failed:", err);
+            }
         }
 
-        fmPrevBtn.onclick = () => { if (fmCurrentIndex > 0) { fmCurrentIndex--; updateFocusModeUI(); } };
-        fmSkipBtn.onclick = () => { if (fmCurrentIndex < globalParsedItems.length - 1) { fmCurrentIndex++; updateFocusModeUI(); } };
-
-        // Keyboard Shortcuts for Focus Mode
+        // Global Keyboard Listener for Focus Mode Shortcuts
         document.addEventListener('keydown', (e) => {
-            if (!isFocusMode || fmCurrentIndex >= globalParsedItems.length) return;
-            
-            // Ignore if user is typing in an input field somewhere else
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-            if (e.key.toLowerCase() === 'c') {
-                e.preventDefault();
-                fmCopyBothBtn.click();
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (lastCropCoords && !fmQuickCaptureBtn.disabled) {
-                    fmQuickCaptureBtn.click();
-                } else if (!lastCropCoords && !fmCaptureBtn.disabled) {
-                    fmCaptureBtn.click();
-                }
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                fmSkipBtn.click();
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                fmPrevBtn.click();
-            }
-        });
-
-        // Focus Mode Quick Capture (1-Click Memory Crop)
-        fmQuickCaptureBtn.onclick = async () => {
-            if (!lastCropCoords) return;
-            try {
-                const originalHtml = fmQuickCaptureBtn.innerHTML;
-                fmQuickCaptureBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>`;
-                fmQuickCaptureBtn.disabled = true;
-                fmCaptureBtn.disabled = true;
-
-                const fullScreenshot = await getScreenCaptureDataUrl();
+            const focusContainer = document.getElementById('focusModeContainer');
+            if (focusContainer && !focusContainer.classList.contains('hidden') && window.isInFocusMode) {
                 
-                // Apply crop instantly in background
-                const img = new Image();
-                img.onload = () => {
-                    const resCanvas = document.createElement('canvas');
-                    resCanvas.width = lastCropCoords.w;
-                    resCanvas.height = lastCropCoords.h;
-                    resCanvas.getContext('2d').drawImage(img, lastCropCoords.x, lastCropCoords.y, lastCropCoords.w, lastCropCoords.h, 0, 0, lastCropCoords.w, lastCropCoords.h);
-                    
-                    const croppedScreenshot = resCanvas.toDataURL('image/jpeg', 0.8);
-                    
-                    const item = globalParsedItems[fmCurrentIndex];
-                    const startFull = `${item.date} ${item.start}`;
-                    const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
-                    const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-
-                    capturedMapsData[fmCurrentIndex] = {
-                        filename: filename,
-                        dataUrl: croppedScreenshot,
-                        displayText: displayText
-                    };
-
-                    generatedMapIndices.add(fmCurrentIndex);
-                    updateStatsUI();
-
-                    // Sync state back to the hidden List View
-                    const row = document.getElementById(`row-${fmCurrentIndex}`);
-                    if (row) {
-                        const imgPreview = row.querySelector('.map-preview-img');
-                        const imageSection = row.querySelector('.map-image-section');
-                        const downloadImgBtn = row.querySelector('.map-download-btn');
-                        const listCaptureBtn = document.getElementById(`capture-btn-${fmCurrentIndex}`);
-
-                        imgPreview.src = croppedScreenshot;
-                        imageSection.classList.remove('hidden');
-                        imageSection.classList.add('flex');
-                        listCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
-
-                        downloadImgBtn.onclick = () => {
-                            const a = document.createElement('a');
-                            a.href = croppedScreenshot;
-                            a.download = filename;
-                            a.click();
-                        };
+                if (e.key.toLowerCase() === 'c') {
+                    // Manual copy for current
+                    const btn = document.getElementById('fmCopyBothBtn');
+                    if (btn) btn.click();
+                } 
+                else if (e.key === 'Enter') {
+                    // Quick Capture + Auto-Copy Next
+                    const quickBtn = document.getElementById('fmQuickCaptureBtn');
+                    if (quickBtn && !quickBtn.classList.contains('hidden')) {
+                        autoCopyNextFocusItem(); // Do this FIRST before async save locks thread
+                        quickBtn.click();
                     }
-
-                    // Auto Advance
-                    fmCurrentIndex++;
-                    updateFocusModeUI();
-                    
-                    fmQuickCaptureBtn.innerHTML = originalHtml;
-                    fmQuickCaptureBtn.disabled = false;
-                    fmCaptureBtn.disabled = false;
-                };
-                img.src = fullScreenshot;
-
-            } catch (err) {
-                console.error(err);
-                fmQuickCaptureBtn.disabled = false;
-                fmCaptureBtn.disabled = false;
-                updateFocusModeUI();
-            }
-        };
-
-        // Focus Mode Manual Capture Logic
-        fmCaptureBtn.onclick = async () => {
-            try {
-                const originalHtml = fmCaptureBtn.innerHTML;
-                fmCaptureBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Capturing...`;
-                fmCaptureBtn.disabled = true;
-
-                const fullScreenshot = await getScreenCaptureDataUrl();
-                const croppedScreenshot = await openCropOverlay(fullScreenshot);
-
-                if (croppedScreenshot) {
-                    const item = globalParsedItems[fmCurrentIndex];
-                    const startFull = `${item.date} ${item.start}`;
-                    const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
-                    const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-
-                    capturedMapsData[fmCurrentIndex] = {
-                        filename: filename,
-                        dataUrl: croppedScreenshot,
-                        displayText: displayText
-                    };
-
-                    generatedMapIndices.add(fmCurrentIndex);
-                    updateStatsUI();
-
-                    // Sync state back to the hidden List View
-                    const row = document.getElementById(`row-${fmCurrentIndex}`);
-                    if (row) {
-                        const imgPreview = row.querySelector('.map-preview-img');
-                        const imageSection = row.querySelector('.map-image-section');
-                        const downloadImgBtn = row.querySelector('.map-download-btn');
-                        const listCaptureBtn = document.getElementById(`capture-btn-${fmCurrentIndex}`);
-
-                        imgPreview.src = croppedScreenshot;
-                        imageSection.classList.remove('hidden');
-                        imageSection.classList.add('flex');
-                        listCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
-
-                        downloadImgBtn.onclick = () => {
-                            const a = document.createElement('a');
-                            a.href = croppedScreenshot;
-                            a.download = filename;
-                            a.click();
-                        };
+                } 
+                else if (e.key === 'ArrowRight') {
+                    // Skip + Auto-Copy Next
+                    const skipBtn = document.getElementById('fmSkipBtn');
+                    if (skipBtn && !skipBtn.disabled) {
+                        autoCopyNextFocusItem();
+                        skipBtn.click();
                     }
-
-                    // Auto Advance to Next Timeframe
-                    fmCurrentIndex++;
-                    updateFocusModeUI();
-                } else {
-                    fmCaptureBtn.innerHTML = originalHtml;
                 }
-            } catch (err) {
-                console.error(err);
-                if (err.message && err.message.includes('permissions policy')) {
-                    alert("Capture blocked: Please run this file locally.");
-                }
-                updateFocusModeUI(); // Reset button
-            } finally {
-                fmCaptureBtn.disabled = false;
             }
-        };
+        }, true);
 
-        // Copy Bulk List logic
-        copyBulkBtn.addEventListener('click', () => {
-            bulkOutputText.select();
-            document.execCommand("copy");
+        // Also upgrade mouse clicks on the buttons to trigger auto-copy
+        setTimeout(() => {
+            const quickBtn = document.getElementById('fmQuickCaptureBtn');
+            if (quickBtn) quickBtn.addEventListener('click', autoCopyNextFocusItem, true);
             
-            const originalHtml = copyBulkBtn.innerHTML;
-            copyBulkBtn.innerHTML = `Copied!`;
-            copyBulkBtn.classList.add('bg-green-100', 'text-green-800', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
-            setTimeout(() => {
-                copyBulkBtn.innerHTML = originalHtml;
-                copyBulkBtn.classList.remove('bg-green-100', 'text-green-800', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
-            }, 2000);
-        });
-
-        // Copy Email logic
-        copyEmailBtn.addEventListener('click', () => {
-            emailOutputText.select();
-            document.execCommand("copy");
-            
-            const originalHtml = copyEmailBtn.innerHTML;
-            copyEmailBtn.innerHTML = `Copied!`;
-            copyEmailBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-            copyEmailBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-            setTimeout(() => {
-                copyEmailBtn.innerHTML = originalHtml;
-                copyEmailBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                copyEmailBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-            }, 2000);
-        });
-
-        // Download All Maps Logic (ZIP Generation)
-        downloadAllBtn.addEventListener('click', async () => {
-            if (Object.keys(capturedMapsData).length === 0) return;
-            
-            const originalHtml = downloadAllBtn.innerHTML;
-            downloadAllBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Zipping...`;
-            downloadAllBtn.disabled = true;
-            
-            try {
-                const zip = new JSZip();
-                
-                // Add all captured maps to the zip file
-                for (const key in capturedMapsData) {
-                    const map = capturedMapsData[key];
-                    // Strip the "data:image/png;base64," prefix to get raw base64 data
-                    const base64Data = map.dataUrl.split(',')[1];
-                    zip.file(map.filename, base64Data, {base64: true});
-                }
-                
-                // Generate and download the zip
-                const content = await zip.generateAsync({type:"blob"});
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const zipFilename = `Trail-Maps-${timestamp}.zip`;
-                
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(content);
-                a.download = zipFilename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
-                
-                // Show success state
-                downloadAllBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Downloaded!`;
-                downloadAllBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
-                
-                setTimeout(() => {
-                    downloadAllBtn.innerHTML = originalHtml;
-                    downloadAllBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
-                    downloadAllBtn.disabled = false;
-                }, 3000);
-            } catch (err) {
-                console.error("Failed to zip maps:", err);
-                alert("Failed to create ZIP file. Please try downloading individually.");
-                downloadAllBtn.innerHTML = originalHtml;
-                downloadAllBtn.disabled = false;
-            }
-        });
-
-        // Copy All Maps to Clipboard Logic (Rich Text Format)
-        copyAllMapsBtn.addEventListener('click', async () => {
-            if (Object.keys(capturedMapsData).length === 0) return;
-            
-            const originalHtml = copyAllMapsBtn.innerHTML;
-            copyAllMapsBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-800 dark:border-white"></div> Copying...`;
-            copyAllMapsBtn.disabled = true;
-
-            try {
-                // Construct Rich HTML content for clipboard
-                let htmlContent = `<div style="font-family: Arial, sans-serif;">`;
-                
-                // Sort keys to maintain chronological chronological top-down order
-                const sortedKeys = Object.keys(capturedMapsData).map(Number).sort((a, b) => a - b);
-                
-                for (const key of sortedKeys) {
-                    const map = capturedMapsData[key];
-                    // Format identically to the requested Word doc layout
-                    htmlContent += `
-                        <p style="margin-bottom: 8px; font-size: 11pt;"><strong><u>${map.displayText}</u></strong></p>
-                        <img src="${map.dataUrl}" style="max-width: 100%; border: 1px solid #d1d5db;" alt="Map for ${map.displayText}" />
-                        <br><br>
-                    `;
-                }
-                htmlContent += `</div>`;
-
-                // Create hidden contenteditable div to execute the copy command
-                const hiddenDiv = document.createElement('div');
-                hiddenDiv.contentEditable = true;
-                hiddenDiv.innerHTML = htmlContent;
-                hiddenDiv.style.position = 'absolute';
-                hiddenDiv.style.left = '-9999px';
-                hiddenDiv.style.top = '-9999px';
-                document.body.appendChild(hiddenDiv);
-
-                // Select the rich content
-                const range = document.createRange();
-                range.selectNodeContents(hiddenDiv);
-                const selection = window.getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
-
-                // Execute copy
-                const successful = document.execCommand('copy');
-                
-                // Cleanup
-                selection.removeAllRanges();
-                document.body.removeChild(hiddenDiv);
-
-                if (successful) {
-                    copyAllMapsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
-                    copyAllMapsBtn.classList.replace('bg-slate-200', 'bg-green-100');
-                    copyAllMapsBtn.classList.replace('dark:bg-slate-700', 'dark:bg-emerald-900/50');
-                    copyAllMapsBtn.classList.add('text-green-800', 'dark:text-emerald-400');
-                } else {
-                    throw new Error("Copy command failed");
-                }
-                
-                setTimeout(() => {
-                    copyAllMapsBtn.innerHTML = originalHtml;
-                    copyAllMapsBtn.classList.replace('bg-green-100', 'bg-slate-200');
-                    copyAllMapsBtn.classList.replace('dark:bg-emerald-900/50', 'dark:bg-slate-700');
-                    copyAllMapsBtn.classList.remove('text-green-800', 'dark:text-emerald-400');
-                    copyAllMapsBtn.disabled = false;
-                }, 3000);
-
-            } catch (err) {
-                console.error("Failed to copy maps:", err);
-                alert("Failed to copy images to clipboard. Your browser might block this action.");
-                copyAllMapsBtn.innerHTML = originalHtml;
-                copyAllMapsBtn.disabled = false;
-            }
-        });
-
+            const skipBtn = document.getElementById('fmSkipBtn');
+            if (skipBtn) skipBtn.addEventListener('click', autoCopyNextFocusItem, true);
+        }, 1000);
     </script>
 </body>
 </html>
