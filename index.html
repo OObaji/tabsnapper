@@ -905,6 +905,8 @@
             let matches = [...input.matchAll(dateRegex)];
             if (matches.length === 0) return [];
 
+            let isSingleDay = matches.length === 1;
+
             let results = [];
             for (let i = 0; i < matches.length; i++) {
                 let currentDate = matches[i][0];
@@ -932,7 +934,8 @@
                         let totalHours = getHoursDiff(start, end);
 
                         // Hourly Breakdown Logic for explicit times
-                        if (end && totalHours > 0) {
+                        // Only break down if it's a single day request AND they haven't manually provided multiple chunks
+                        if (end && totalHours > 0 && isSingleDay && times.length === 1) {
                             let sH = parseInt(start.split(':')[0], 10);
                             let sM = parseInt(start.split(':')[1], 10);
                             let startMins = sH * 60 + sM;
