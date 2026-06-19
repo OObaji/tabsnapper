@@ -270,33 +270,33 @@
 
                                 <button id="fmCopyBothBtn" class="text-xs text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 mb-6 font-medium underline cursor-pointer transition-colors">⚡ Tip: Click to Copy Both (Tab-Separated)</button>
 
-                                <button id="fmCaptureBtn" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-lg font-bold shadow-md shadow-blue-500/20 transition-all flex justify-center items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                                    Capture & Advance
-                                </button>
+                                <div class="flex flex-col sm:flex-row w-full gap-3">
+                                    <button id="fmQuickCaptureBtn" class="hidden flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-lg font-bold shadow-md shadow-emerald-500/20 transition-all justify-center items-center gap-2 border border-emerald-500">
+                                        ⚡ Quick Capture
+                                    </button>
+                                    <button id="fmCaptureBtn" class="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-lg font-bold shadow-md shadow-blue-500/20 transition-all flex justify-center items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                                        <span id="fmCaptureText">Manual Crop</span>
+                                    </button>
+                                </div>
+                                
+                                <div class="text-center mt-3 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                                    Shortcuts: <kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">C</kbd> Copy Both • <kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">Enter</kbd> Quick Capture
+                                </div>
 
-                                <div class="flex justify-between w-full mt-6 pt-4 border-t border-slate-200 dark:border-slate-700/50">
-                                    <button id="fmPrevBtn" class="text-sm font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">← Previous</button>
-                                    <button id="fmSkipBtn" class="text-sm font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">Skip →</button>
+                                <div class="flex justify-between w-full mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/50">
+                                    <button id="fmPrevBtn" class="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg> Previous
+                                    </button>
+                                    <button id="fmSkipBtn" class="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                                        Skip <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                        
-                        <div id="scheduleOutput" class="flex flex-col gap-3 flex-grow overflow-y-auto pr-2 custom-scrollbar">
-                            <!-- Empty state inside the list container -->
-                            <div id="parserEmptyState" class="h-full flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500 flex-grow">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 opacity-50"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                <p class="text-sm">Parsed dates and times will appear here.</p>
-                            </div>
-                        </div>
+
                     </div>
-
-                </div>
-            </div> <!-- End of viewParser -->
-
-        </main>
-
-        <!-- Footer -->
+                </div> <!-- End of viewParser -->
         <footer class="mt-12 text-center text-sm text-slate-400 dark:text-slate-500 pb-4">
             <p>Runs entirely in your browser. No images are uploaded to any server.</p>
         </footer>
@@ -544,6 +544,7 @@
         let cropImg = new Image();
         let cropResolveFn = null;
         let cropStartX, cropStartY, cropEndX, cropEndY, isCropping = false;
+        let lastCropCoords = null; // Stores coordinates for Quick Capture
 
         function openCropOverlay(dataUrl) {
             return new Promise((resolve) => {
@@ -579,6 +580,9 @@
                 const y = Math.min(cropStartY, cropEndY);
                 const w = Math.abs(cropEndX - cropStartX);
                 const h = Math.abs(cropEndY - cropStartY);
+                
+                // Save coordinates for Quick Capture feature
+                lastCropCoords = { x, y, w, h };
                 
                 const resCanvas = document.createElement('canvas');
                 resCanvas.width = w;
@@ -997,6 +1001,7 @@
             // Set globals
             globalParsedItems = parsedItems;
             fmCurrentIndex = 0;
+            lastCropCoords = null; // Reset crop memory on new parse
             
             scheduleOutput.innerHTML = ''; 
             bulkOutputContainer.classList.add('hidden');
@@ -1196,6 +1201,8 @@
         const fmCopyEndBtn = document.getElementById('fmCopyEndBtn');
         const fmCopyBothBtn = document.getElementById('fmCopyBothBtn');
         const fmCaptureBtn = document.getElementById('fmCaptureBtn');
+        const fmCaptureText = document.getElementById('fmCaptureText');
+        const fmQuickCaptureBtn = document.getElementById('fmQuickCaptureBtn');
         const fmPrevBtn = document.getElementById('fmPrevBtn');
         const fmSkipBtn = document.getElementById('fmSkipBtn');
         const fmProgressBar = document.getElementById('fmProgressBar');
@@ -1231,13 +1238,23 @@
             fmCopyBothBtn.style.display = item.end ? 'block' : 'none';
             fmCaptureBtn.style.display = 'flex';
 
+            // Show Quick Capture if we have memorized coordinates
+            if (lastCropCoords) {
+                fmQuickCaptureBtn.classList.remove('hidden');
+                fmQuickCaptureBtn.classList.add('flex');
+                fmCaptureText.textContent = "Manual Crop";
+            } else {
+                fmQuickCaptureBtn.classList.add('hidden');
+                fmQuickCaptureBtn.classList.remove('flex');
+                fmCaptureText.textContent = "Capture & Advance";
+            }
+
             // Check if map is already captured
             if (generatedMapIndices.has(fmCurrentIndex)) {
-                fmCaptureBtn.innerHTML = `✅ Map Captured (Retake)`;
                 fmCaptureBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
                 fmCaptureBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-500');
+                if(!lastCropCoords) fmCaptureText.textContent = "Captured (Retake)";
             } else {
-                fmCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Capture & Advance`;
                 fmCaptureBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
                 fmCaptureBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
             }
@@ -1275,7 +1292,107 @@
         fmPrevBtn.onclick = () => { if (fmCurrentIndex > 0) { fmCurrentIndex--; updateFocusModeUI(); } };
         fmSkipBtn.onclick = () => { if (fmCurrentIndex < globalParsedItems.length - 1) { fmCurrentIndex++; updateFocusModeUI(); } };
 
-        // Focus Mode Capture Logic
+        // Keyboard Shortcuts for Focus Mode
+        document.addEventListener('keydown', (e) => {
+            if (!isFocusMode || fmCurrentIndex >= globalParsedItems.length) return;
+            
+            // Ignore if user is typing in an input field somewhere else
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.key.toLowerCase() === 'c') {
+                e.preventDefault();
+                fmCopyBothBtn.click();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (lastCropCoords && !fmQuickCaptureBtn.disabled) {
+                    fmQuickCaptureBtn.click();
+                } else if (!lastCropCoords && !fmCaptureBtn.disabled) {
+                    fmCaptureBtn.click();
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                fmSkipBtn.click();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                fmPrevBtn.click();
+            }
+        });
+
+        // Focus Mode Quick Capture (1-Click Memory Crop)
+        fmQuickCaptureBtn.onclick = async () => {
+            if (!lastCropCoords) return;
+            try {
+                const originalHtml = fmQuickCaptureBtn.innerHTML;
+                fmQuickCaptureBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>`;
+                fmQuickCaptureBtn.disabled = true;
+                fmCaptureBtn.disabled = true;
+
+                const fullScreenshot = await getScreenCaptureDataUrl();
+                
+                // Apply crop instantly in background
+                const img = new Image();
+                img.onload = () => {
+                    const resCanvas = document.createElement('canvas');
+                    resCanvas.width = lastCropCoords.w;
+                    resCanvas.height = lastCropCoords.h;
+                    resCanvas.getContext('2d').drawImage(img, lastCropCoords.x, lastCropCoords.y, lastCropCoords.w, lastCropCoords.h, 0, 0, lastCropCoords.w, lastCropCoords.h);
+                    
+                    const croppedScreenshot = resCanvas.toDataURL('image/jpeg', 0.8);
+                    
+                    const item = globalParsedItems[fmCurrentIndex];
+                    const startFull = `${item.date} ${item.start}`;
+                    const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                    const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
+
+                    capturedMapsData[fmCurrentIndex] = {
+                        filename: filename,
+                        dataUrl: croppedScreenshot,
+                        displayText: displayText
+                    };
+
+                    generatedMapIndices.add(fmCurrentIndex);
+                    updateStatsUI();
+
+                    // Sync state back to the hidden List View
+                    const row = document.getElementById(`row-${fmCurrentIndex}`);
+                    if (row) {
+                        const imgPreview = row.querySelector('.map-preview-img');
+                        const imageSection = row.querySelector('.map-image-section');
+                        const downloadImgBtn = row.querySelector('.map-download-btn');
+                        const listCaptureBtn = document.getElementById(`capture-btn-${fmCurrentIndex}`);
+
+                        imgPreview.src = croppedScreenshot;
+                        imageSection.classList.remove('hidden');
+                        imageSection.classList.add('flex');
+                        listCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
+
+                        downloadImgBtn.onclick = () => {
+                            const a = document.createElement('a');
+                            a.href = croppedScreenshot;
+                            a.download = filename;
+                            a.click();
+                        };
+                    }
+
+                    // Auto Advance
+                    fmCurrentIndex++;
+                    updateFocusModeUI();
+                    
+                    fmQuickCaptureBtn.innerHTML = originalHtml;
+                    fmQuickCaptureBtn.disabled = false;
+                    fmCaptureBtn.disabled = false;
+                };
+                img.src = fullScreenshot;
+
+            } catch (err) {
+                console.error(err);
+                fmQuickCaptureBtn.disabled = false;
+                fmCaptureBtn.disabled = false;
+                updateFocusModeUI();
+            }
+        };
+
+        // Focus Mode Manual Capture Logic
         fmCaptureBtn.onclick = async () => {
             try {
                 const originalHtml = fmCaptureBtn.innerHTML;
