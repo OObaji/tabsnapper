@@ -776,7 +776,7 @@
                 return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
             }
             
-            let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)/i);
+            let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?:\s+(\d{2,4}))?/i);
             if (!matches) return dateStr;
             let day = parseInt(matches[1], 10);
             let monthStr = matches[2].toLowerCase();
@@ -786,7 +786,8 @@
                 november:11, nov:11, december:12, dec:12
             };
             let month = monthMap[monthStr] || 1;
-            let year = 2026; 
+            let year = matches[3] ? matches[3] : '2026'; 
+            if (year.length === 2) year = '20' + year;
             return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
         }
 
@@ -899,7 +900,7 @@
             }
 
             // 2. Original Regex to find explicit dates and times
-            const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/gi;
+            const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)(?:\s+\d{2,4})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/gi;
             
             let matches = [...input.matchAll(dateRegex)];
             if (matches.length === 0) return [];
@@ -911,7 +912,7 @@
                 let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
                 let timesStr = input.substring(startIdx, endIdx);
 
-                timesStr = timesStr.replace(/FROM/gi, '').replace(/^[:\s]+/, '').trim();
+                timesStr = timesStr.replace(/FROM|between the hours of|between the hours|between/gi, '').replace(/^[:\s]+/, '').trim();
                 let times = timesStr.split(/,| and | & |\n/i).map(t => t.trim()).filter(t => t.length > 0);
 
                 times.forEach(time => {
@@ -928,14 +929,58 @@
                             end = '23:59';
                         }
                         
-                        let hours = getHoursDiff(start, end);
+                        let totalHours = getHoursDiff(start, end);
 
-                        results.push({
-                            date: formattedDate,
-                            start: start,
-                            end: end,
-                            hours: hours
-                        });
+                        // Hourly Breakdown Logic for explicit times
+                        if (end && totalHours > 0) {
+                            let sH = parseInt(start.split(':')[0], 10);
+                            let sM = parseInt(start.split(':')[1], 10);
+                            let startMins = sH * 60 + sM;
+                            
+                            let eH, eM;
+                            if (end === '23:59') {
+                                eH = 24; eM = 0; // use 24:00 for the mathematical end boundary
+                            } else {
+                                eH = parseInt(end.split(':')[0], 10);
+                                eM = parseInt(end.split(':')[1], 10);
+                            }
+                            let endMins = eH * 60 + eM;
+                            if (endMins <= startMins) endMins += 24 * 60; // handle overnight wrap
+                            
+                            while (startMins < endMins) {
+                                let chunkEndMins = Math.min(startMins + 60, endMins); // 1 hour step
+                                
+                                let curH = Math.floor(startMins / 60) % 24;
+                                let curM = startMins % 60;
+                                let nextH = Math.floor(chunkEndMins / 60) % 24;
+                                let nextM = chunkEndMins % 60;
+                                
+                                let curStartStr = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
+                                let curEndStr = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
+                                
+                                if (chunkEndMins % 1440 === 0 && chunkEndMins > 0) {
+                                    curEndStr = '23:59';
+                                }
+                                
+                                let chunkHours = getHoursDiff(curStartStr, curEndStr);
+                                
+                                results.push({
+                                    date: formattedDate,
+                                    start: curStartStr,
+                                    end: curEndStr,
+                                    hours: chunkHours
+                                });
+                                
+                                startMins = chunkEndMins;
+                            }
+                        } else {
+                            results.push({
+                                date: formattedDate,
+                                start: start,
+                                end: end,
+                                hours: totalHours
+                            });
+                        }
                     }
                 });
             }
