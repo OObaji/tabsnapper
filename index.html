@@ -831,6 +831,10 @@
             const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:-|–|—|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
             const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT/i.test(input);
 
+            // Recognize conversational start times (like "from 00:00") so they don't break the automated date ranges
+            const isGenericMidnightStart = /from\s+(?:00:00|midnight|12(?::00)?\s*AM)\s*(?:for|on)?/i.test(input);
+            const hasSpecificTimeRange = /\d{1,2}:\d{2}\s*(?:-|to|until)\s*\d{1,2}:\d{2}/i.test(input);
+
             const intervals = [
                 { start: "00:00", end: "06:00", hours: 6 },
                 { start: "06:00", end: "12:00", hours: 6 },
@@ -839,7 +843,7 @@
             ];
 
             // Retrospective: Generate the past N days chronologically, ending on the Request Date
-            if (daysMatch && !hasExplicitTimes) {
+            if (daysMatch && (!hasExplicitTimes || (isGenericMidnightStart && !hasSpecificTimeRange))) {
                 let results = [];
                 let numDays = parseInt(daysMatch[1], 10);
                 
@@ -869,7 +873,7 @@
             }
 
             // Date Range: Generate 4 intervals per day from start to end date
-            if (rangeMatch && !hasExplicitTimes) {
+            if (rangeMatch && (!hasExplicitTimes || (isGenericMidnightStart && !hasSpecificTimeRange))) {
                 let results = [];
                 
                 function parseDatePart(dateStr) {
@@ -911,11 +915,14 @@
                 return results;
             }
 
-            // 2. Original Regex to find explicit dates and times
-            const dateRegex = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)(?:\s+\d{2,4})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/gi;
+            // 2. Specific Dates with Custom Times
+            const dateRegex = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{2,4})?)/gi;
             
-            let matches = [...input.matchAll(dateRegex)];
-            if (matches.length === 0) return [];
+            let matches = [];
+            let match;
+            while ((match = dateRegex.exec(input)) !== null) {
+                matches.push(match);
+            }
 
             let isSingleDay = matches.length === 1;
 
