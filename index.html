@@ -804,7 +804,7 @@
         }
 
         function parseFormattedTime(timeStr) {
-            let times = timeStr.split(/\s*-\s*|\s+to\s+/i).map(t => t.trim());
+            let times = timeStr.split(/\s*[-–—]\s*|\s+to\s+/i).map(t => t.trim());
             
             let formatted = times.map(t => {
                 let clean = t.toUpperCase().replace(/\s/g, '');
@@ -828,12 +828,12 @@
         function parseSchedule(input) {
             // 1. Check for automated formats without explicit times
             const daysMatch = input.match(/(?:for|from)\s+(?:the\s+)?(?:(?:last|past|previous)\s+)?(\d+)\s+days?/i);
-            const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:-|–|—|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
+            const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:[-–—]|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
             const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT/i.test(input);
 
             // Recognize conversational start times (like "from 00:00") so they don't break the automated date ranges
             const isGenericMidnightStart = /from\s+(?:00:00|midnight|12(?::00)?\s*AM)\s*(?:for|on)?/i.test(input);
-            const hasSpecificTimeRange = /\d{1,2}:\d{2}\s*(?:-|to|until)\s*\d{1,2}:\d{2}/i.test(input);
+            const hasSpecificTimeRange = /\d{1,2}:\d{2}\s*(?:[-–—]|to|until)\s*\d{1,2}:\d{2}/i.test(input);
 
             const intervals = [
                 { start: "00:00", end: "06:00", hours: 6 },
@@ -872,8 +872,8 @@
                 return results;
             }
 
-            // Date Range: Generate 4 intervals per day from start to end date
-            if (rangeMatch && (!hasExplicitTimes || (isGenericMidnightStart && !hasSpecificTimeRange))) {
+            // Date Range: Support custom times or default 4 intervals
+            if (rangeMatch) {
                 let results = [];
                 
                 function parseDatePart(dateStr) {
@@ -895,6 +895,40 @@
                     let temp = startDate; startDate = endDate; endDate = temp;
                 }
 
+                // Extract custom times if they are included alongside the date range
+                let customIntervals = [];
+                if (hasExplicitTimes && (!isGenericMidnightStart || hasSpecificTimeRange)) {
+                    // Remove the date range itself from the string so we only parse the remaining times
+                    let textWithoutRange = input.replace(rangeMatch[0], '');
+                    let timesStr = textWithoutRange.replace(/GPS Data request|from|between the hours of|between|for/gi, '').replace(/^[-\s–—:]+/, '').trim();
+                    
+                    let times = timesStr.split(/,| and | & |\n/i).map(t => t.trim()).filter(t => t.length > 0);
+                    
+                    times.forEach(time => {
+                        let cleanTime = time.replace(/[;:.]$/, '').trim();
+                        // Ignore leftover text, ensure it has digits
+                        if (cleanTime && /\d/.test(cleanTime)) {
+                            let formattedTimesArray = parseFormattedTime(cleanTime);
+                            let start = formattedTimesArray[0];
+                            let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
+                            
+                            if (end === '00:00' || end === '24:00') end = '23:59';
+                            
+                            // Validate it actually extracted a valid time chunk
+                            if (start && start.includes(':')) {
+                                customIntervals.push({
+                                    start: start,
+                                    end: end,
+                                    hours: getHoursDiff(start, end)
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // If no valid explicit chunks were provided, fall back to default 24/7 breakdown
+                let intervalsToUse = customIntervals.length > 0 ? customIntervals : intervals;
+
                 let current = new Date(startDate);
                 while (current <= endDate) {
                     let dd = current.getDate().toString().padStart(2, '0');
@@ -902,7 +936,7 @@
                     let yyyy = current.getFullYear();
                     let formattedDate = `${dd}/${mm}/${yyyy}`;
 
-                    intervals.forEach(interval => {
+                    intervalsToUse.forEach(interval => {
                         results.push({
                             date: formattedDate,
                             start: interval.start,
