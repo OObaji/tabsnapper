@@ -209,6 +209,19 @@
                             <textarea id="emailOutputText" rows="8" readonly class="w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-blue-50/50 dark:bg-slate-900/80 text-sm focus:outline-none resize-y text-slate-800 dark:text-slate-200"></textarea>
                         </div>
 
+                        <!-- File Name Template Card -->
+                        <div id="fileNameContainer" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-purple-200 dark:border-purple-900/50 p-6 animate-fade-in relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+                            <div class="flex items-center justify-between mb-3 pl-2">
+                                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">File Name Template</h3>
+                                <button id="copyFileNameBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    <span>Copy Name</span>
+                                </button>
+                            </div>
+                            <input type="text" id="fileNameOutputText" readonly class="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-purple-50/50 dark:bg-slate-900/80 text-sm font-mono focus:outline-none text-slate-800 dark:text-slate-200 cursor-text selection:bg-purple-200 selection:text-purple-900">
+                        </div>
+
                     </div>
 
                     <!-- Right Column: Parsed Time Frames Workspace -->
@@ -668,6 +681,9 @@
         const emailOutputText = document.getElementById('emailOutputText');
         const copyEmailBtn = document.getElementById('copyEmailBtn');
         const requestDateInput = document.getElementById('requestDateInput');
+        const fileNameContainer = document.getElementById('fileNameContainer');
+        const fileNameOutputText = document.getElementById('fileNameOutputText');
+        const copyFileNameBtn = document.getElementById('copyFileNameBtn');
 
         // Set default request date to today
         const today = new Date();
@@ -1055,6 +1071,7 @@
             scheduleOutput.innerHTML = ''; 
             bulkOutputContainer.classList.add('hidden');
             emailTemplateContainer.classList.add('hidden');
+            fileNameContainer.classList.add('hidden');
             parserStats.classList.add('hidden');
             limitWarning.classList.add('hidden');
             
@@ -1110,6 +1127,16 @@ All responses or follow-ups must be sent via a new Trail request. This email cha
 Kind regards,`;
             emailOutputText.value = emailTemplate;
             emailTemplateContainer.classList.remove('hidden');
+
+            // --- Generate File Name Template ---
+            const reqDate = new Date();
+            const dd = String(reqDate.getDate()).padStart(2, '0');
+            const mm = String(reqDate.getMonth() + 1).padStart(2, '0');
+            const yyyy = reqDate.getFullYear();
+            const dotFormattedDate = `${dd}.${mm}.${yyyy}`;
+            
+            fileNameOutputText.value = `Trail data request - DW - ${dotFormattedDate}`;
+            fileNameContainer.classList.remove('hidden');
 
             // Render List View Rows
             parsedItems.forEach((item, index) => {
@@ -1581,6 +1608,22 @@ Kind regards,`;
                 copyEmailBtn.innerHTML = originalHtml;
                 copyEmailBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
                 copyEmailBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }, 2000);
+        });
+
+        // Copy File Name logic
+        copyFileNameBtn.addEventListener('click', () => {
+            fileNameOutputText.select();
+            document.execCommand("copy");
+            
+            const originalHtml = copyFileNameBtn.innerHTML;
+            copyFileNameBtn.innerHTML = `Copied!`;
+            copyFileNameBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            copyFileNameBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+            setTimeout(() => {
+                copyFileNameBtn.innerHTML = originalHtml;
+                copyFileNameBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                copyFileNameBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
             }, 2000);
         });
 
