@@ -694,7 +694,7 @@
         
         scheduleInput.addEventListener('input', () => {
             const text = scheduleInput.value;
-            const daysMatch = text.match(/(?:for|from)\s+(?:the\s+)?(?:(?:last|past|previous)\s+)?(\d+)\s+days?/i);
+            const daysMatch = text.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s+days?/i);
             const hasExplicitTimes = /\d{1,2}:\d{2}/.test(text) || /AM|PM/i.test(text) || /NOON|MIDNIGHT/i.test(text);
             
             if (daysMatch && !hasExplicitTimes) {
@@ -869,7 +869,7 @@
             }
 
             // 1. Check for automated formats without explicit times
-            const daysMatch = input.match(/(?:for|from)\s+(?:the\s+)?(?:(?:last|past|previous)\s+)?(\d+)\s+days?/i);
+            const daysMatch = input.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s+days?/i);
             const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:[-–—]|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
             const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT/i.test(input);
 
