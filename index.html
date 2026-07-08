@@ -842,6 +842,32 @@
         }
 
         function parseSchedule(input) {
+            // Helper to separate times and descriptions safely
+            function extractTimesAndDescriptions(timesStr) {
+                // Regex matches sequences of times, strictly ensuring descriptions contain at least one letter 
+                // to prevent accidentally treating the end-time as a description.
+                let timeRegexStr = "(?:\\d{1,2}[:\\d]*\\s*(?:am|pm)?\\s*[-–—to,]+\\s*)*\\d{1,2}[:\\d]*\\s*(?:am|pm)?";
+                let regex = new RegExp("^(" + timeRegexStr + ")\\s*[-–—]\\s*(.*[a-zA-Z].*)$", "i");
+                
+                return timesStr.split(/\n/i).reduce((acc, t) => {
+                    // Strip leading bullet points or dashes on new lines
+                    t = t.replace(/^[-\s–—*•]+/, '').trim();
+                    if (!t) return acc;
+                    
+                    let timeDescMatch = t.match(regex);
+                    if (timeDescMatch) {
+                        let timePart = timeDescMatch[1];
+                        let descPart = timeDescMatch[2];
+                        let subTimes = timePart.split(/,| and | & /i).map(st => st.trim()).filter(st => st.length > 0);
+                        subTimes.forEach(st => acc.push({ str: st, desc: descPart }));
+                    } else {
+                        let subTimes = t.split(/,| and | & /i).map(st => st.trim()).filter(st => st.length > 0);
+                        subTimes.forEach(st => acc.push({ str: st, desc: null }));
+                    }
+                    return acc;
+                }, []);
+            }
+
             // 1. Check for automated formats without explicit times
             const daysMatch = input.match(/(?:for|from)\s+(?:the\s+)?(?:(?:last|past|previous)\s+)?(\d+)\s+days?/i);
             const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:[-–—]|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
@@ -918,10 +944,11 @@
                     let textWithoutRange = input.replace(rangeMatch[0], '');
                     let timesStr = textWithoutRange.replace(/(?:GPS\s+|Trail\s+)?Data\s+request|from|between the hours of|between|for/gi, '').replace(/^[-\s–—:]+/, '').trim();
                     
-                    let times = timesStr.split(/,| and | & |\n/i).map(t => t.trim()).filter(t => t.length > 0);
+                    let timesList = extractTimesAndDescriptions(timesStr);
                     
-                    times.forEach(time => {
-                        let cleanTime = time.replace(/[;:.]$/, '').trim();
+                    timesList.forEach(timeObj => {
+                        let cleanTime = timeObj.str.replace(/[;:.]$/, '').trim();
+                        let description = timeObj.desc ? timeObj.desc.replace(/[;:.]$/, '').trim() : null;
                         // Ignore leftover text, ensure it has digits
                         if (cleanTime && /\d/.test(cleanTime)) {
                             let formattedTimesArray = parseFormattedTime(cleanTime);
@@ -935,7 +962,8 @@
                                 customIntervals.push({
                                     start: start,
                                     end: end,
-                                    hours: getHoursDiff(start, end)
+                                    hours: getHoursDiff(start, end),
+                                    description: description
                                 });
                             }
                         }
@@ -957,7 +985,8 @@
                             date: formattedDate,
                             start: interval.start,
                             end: interval.end,
-                            hours: interval.hours
+                            hours: interval.hours,
+                            description: interval.description || null
                         });
                     });
                     current.setDate(current.getDate() + 1);
@@ -983,12 +1012,14 @@
                 let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
                 let timesStr = input.substring(startIdx, endIdx);
 
-                timesStr = timesStr.replace(/FROM|between the hours of|between the hours|between/gi, '').replace(/^[:\s]+/, '').trim();
-                let times = timesStr.split(/,| and | & |\n/i).map(t => t.trim()).filter(t => t.length > 0);
+                timesStr = timesStr.replace(/FROM|between the hours of|between the hours|between/gi, '').replace(/^[-\s–—:]+/, '').trim();
+                let timesList = extractTimesAndDescriptions(timesStr);
 
-                times.forEach(time => {
-                    let cleanTime = time.replace(/[;:.]$/, '').trim();
-                    if (cleanTime) {
+                timesList.forEach(timeObj => {
+                    let cleanTime = timeObj.str.replace(/[;:.]$/, '').trim();
+                    let description = timeObj.desc ? timeObj.desc.replace(/[;:.]$/, '').trim() : null;
+                    
+                    if (cleanTime && /\d/.test(cleanTime)) {
                         let formattedDate = parseFormattedDate(currentDate);
                         let formattedTimesArray = parseFormattedTime(cleanTime);
                         
@@ -1004,7 +1035,7 @@
 
                         // Hourly Breakdown Logic for explicit times
                         // Only break down if it's a single day request AND they haven't manually provided multiple chunks
-                        if (end && totalHours > 0 && isSingleDay && times.length === 1) {
+                        if (end && totalHours > 0 && isSingleDay && timesList.length === 1) {
                             let sH = parseInt(start.split(':')[0], 10);
                             let sM = parseInt(start.split(':')[1], 10);
                             let startMins = sH * 60 + sM;
@@ -1040,7 +1071,8 @@
                                     date: formattedDate,
                                     start: curStartStr,
                                     end: curEndStr,
-                                    hours: chunkHours
+                                    hours: chunkHours,
+                                    description: description
                                 });
                                 
                                 startMins = chunkEndMins;
@@ -1050,7 +1082,8 @@
                                 date: formattedDate,
                                 start: start,
                                 end: end,
-                                hours: totalHours
+                                hours: totalHours,
+                                description: description
                             });
                         }
                     }
@@ -1107,10 +1140,10 @@
 
             // --- Generate Bulk Text List ---
             const bulkLines = parsedItems.map(item => {
-                if (item.end) {
-                    return `${item.date} -${item.start}-${item.end}`;
-                }
-                return `${item.date} -${item.start}`;
+                let line = `${item.date} -${item.start}`;
+                if (item.end) line += `-${item.end}`;
+                if (item.description) line += ` - ${item.description}`;
+                return line;
             });
             
             const joinedBulkLines = bulkLines.join('\n');
@@ -1146,7 +1179,11 @@ Kind regards,`;
                 
                 const startFull = `${item.date} ${item.start}`;
                 const endFull = item.end ? `${item.date} ${item.end}` : null;
-                const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                let displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+
+                if (item.description) {
+                    displayText += ` (${item.description})`;
+                }
 
                 // Hour interval badge UI
                 const intervalBadge = item.hours > 0 
@@ -1314,6 +1351,9 @@ Kind regards,`;
             fmProgressBar.style.width = `${((fmCurrentIndex) / globalParsedItems.length) * 100}%`;
 
             fmDisplayText.innerHTML = `${item.date} <br> <span class="text-blue-600 dark:text-blue-400">${item.start}${item.end ? ' - ' + item.end : ''}</span>`;
+            if (item.description) {
+                fmDisplayText.innerHTML += `<div class="text-lg sm:text-xl text-slate-500 dark:text-slate-400 mt-2 font-medium break-words px-4">${item.description}</div>`;
+            }
 
             fmCopyStartBtn.style.display = 'block';
             fmCopyEndBtn.style.display = item.end ? 'block' : 'none';
@@ -1464,7 +1504,9 @@ Kind regards,`;
                     
                     const item = globalParsedItems[fmCurrentIndex];
                     const startFull = `${item.date} ${item.start}`;
-                    const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                    let displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                    if (item.description) displayText += ` (${item.description})`;
+                    
                     const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
 
                     capturedMapsData[fmCurrentIndex] = {
@@ -1531,7 +1573,9 @@ Kind regards,`;
                 if (croppedScreenshot) {
                     const item = globalParsedItems[fmCurrentIndex];
                     const startFull = `${item.date} ${item.start}`;
-                    const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                    let displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                    if (item.description) displayText += ` (${item.description})`;
+                    
                     const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
 
                     capturedMapsData[fmCurrentIndex] = {
