@@ -846,7 +846,7 @@
             function extractTimesAndDescriptions(timesStr) {
                 // Regex matches sequences of times, strictly ensuring descriptions contain at least one letter 
                 // to prevent accidentally treating the end-time as a description.
-                let timeRegexStr = "(?:\\d{1,2}[:\\d]*\\s*(?:am|pm)?\\s*[-–—to,]+\\s*)*\\d{1,2}[:\\d]*\\s*(?:am|pm)?";
+                let timeRegexStr = "(?:\\d{1,2}[:\\d]*\\s*(?:am|pm)?\\s*(?:[-–—,]|to|and|&)+\\s*)*\\d{1,2}[:\\d]*\\s*(?:am|pm)?";
                 let regex = new RegExp("^(" + timeRegexStr + ")\\s*[-–—]\\s*(.*[a-zA-Z].*)$", "i");
                 
                 return timesStr.split(/\n/i).reduce((acc, t) => {
@@ -854,14 +854,17 @@
                     t = t.replace(/^[-\s–—*•]+/, '').trim();
                     if (!t) return acc;
                     
+                    // Safely split strings of multiple chunks whether separated by commas, 'and', or both
+                    let splitRegex = /\s*,\s*(?:and\s+)?|\s+and\s+|\s+&\s+/i;
+                    
                     let timeDescMatch = t.match(regex);
                     if (timeDescMatch) {
                         let timePart = timeDescMatch[1];
                         let descPart = timeDescMatch[2];
-                        let subTimes = timePart.split(/,| and | & /i).map(st => st.trim()).filter(st => st.length > 0);
+                        let subTimes = timePart.split(splitRegex).map(st => st.trim()).filter(st => st.length > 0);
                         subTimes.forEach(st => acc.push({ str: st, desc: descPart }));
                     } else {
-                        let subTimes = t.split(/,| and | & /i).map(st => st.trim()).filter(st => st.length > 0);
+                        let subTimes = t.split(splitRegex).map(st => st.trim()).filter(st => st.length > 0);
                         subTimes.forEach(st => acc.push({ str: st, desc: null }));
                     }
                     return acc;
@@ -1012,7 +1015,7 @@
                 let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
                 let timesStr = input.substring(startIdx, endIdx);
 
-                timesStr = timesStr.replace(/FROM|between the hours of|between the hours|between/gi, '').replace(/^[-\s–—:]+/, '').trim();
+                timesStr = timesStr.replace(/FROM|between the hours of|between the hours|between|for/gi, '').replace(/^[-\s–—:]+/, '').trim();
                 let timesList = extractTimesAndDescriptions(timesStr);
 
                 timesList.forEach(timeObj => {
