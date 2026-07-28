@@ -827,6 +827,7 @@
                 if (clean === '12NOON' || clean === 'NOON') return '12:00';
                 if (clean === '12MIDNIGHT' || clean === 'MIDNIGHT') return '00:00';
                 
+                // Allow formats like "10AM", "4PM", "10:30AM"
                 let m = clean.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM)?$/);
                 if (!m) return t;
                 let hrs = parseInt(m[1], 10);
@@ -852,10 +853,14 @@
                 return timesStr.split(/\n/i).reduce((acc, t) => {
                     // Strip leading bullet points or dashes on new lines
                     t = t.replace(/^[-\s–—*•]+/, '').trim();
+                    // Strip leading/trailing 'and' or '&' that might be left over from line breaks
+                    t = t.replace(/^(?:and|&)\s+/i, '').trim();
+                    t = t.replace(/\s+(?:and|&)$/i, '').trim();
+                    
                     if (!t) return acc;
                     
-                    // Safely split strings of multiple chunks whether separated by commas, 'and', or both
-                    let splitRegex = /\s*,\s*(?:and\s+)?|\s+and\s+|\s+&\s+/i;
+                    // Safely split strings of multiple chunks whether separated by commas, semicolons, 'and', or both
+                    let splitRegex = /\s*[,;]\s*(?:and\s+)?|\s+and\s+|\s+&\s+/i;
                     
                     let timeDescMatch = t.match(regex);
                     if (timeDescMatch) {
@@ -950,8 +955,8 @@
                     let timesList = extractTimesAndDescriptions(timesStr);
                     
                     timesList.forEach(timeObj => {
-                        let cleanTime = timeObj.str.replace(/[;:.]$/, '').trim();
-                        let description = timeObj.desc ? timeObj.desc.replace(/[;:.]$/, '').trim() : null;
+                        let cleanTime = timeObj.str.replace(/[;:,.\s]+$/, '').trim();
+                        let description = timeObj.desc ? timeObj.desc.replace(/[;:,.\s]+$/, '').trim() : null;
                         // Ignore leftover text, ensure it has digits
                         if (cleanTime && /\d/.test(cleanTime)) {
                             let formattedTimesArray = parseFormattedTime(cleanTime);
@@ -1009,88 +1014,103 @@
             let isSingleDay = matches.length === 1;
 
             let results = [];
+            let pendingDates = []; // Track dates that share a trailing time block
+            
             for (let i = 0; i < matches.length; i++) {
                 let currentDate = matches[i][0];
                 let startIdx = matches[i].index + currentDate.length;
                 let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
-                let timesStr = input.substring(startIdx, endIdx);
+                let rawTimesStr = input.substring(startIdx, endIdx);
 
-                timesStr = timesStr.replace(/FROM|between the hours of|between the hours|between|for/gi, '').replace(/^[-\s–—:]+/, '').trim();
+                let timesStr = rawTimesStr.replace(/FROM|times:|times|between the hours of|between the hours|between|for/gi, '').replace(/^[-\s–—:;,]+/, '').trim();
                 let timesList = extractTimesAndDescriptions(timesStr);
 
-                timesList.forEach(timeObj => {
-                    let cleanTime = timeObj.str.replace(/[;:.]$/, '').trim();
-                    let description = timeObj.desc ? timeObj.desc.replace(/[;:.]$/, '').trim() : null;
-                    
-                    if (cleanTime && /\d/.test(cleanTime)) {
-                        let formattedDate = parseFormattedDate(currentDate);
-                        let formattedTimesArray = parseFormattedTime(cleanTime);
-                        
-                        let start = formattedTimesArray[0];
-                        let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
-                        
-                        // Prevent "00:00" from displaying as end of day
-                        if (end === '00:00' || end === '24:00') {
-                            end = '23:59';
-                        }
-                        
-                        let totalHours = getHoursDiff(start, end);
+                // Filter out empty/invalid time strings
+                let validTimes = timesList.filter(timeObj => {
+                    let clean = timeObj.str.replace(/[;:,.\s]+$/, '').trim();
+                    return clean && /\d/.test(clean);
+                });
 
-                        // Hourly Breakdown Logic for explicit times
-                        // Only break down if it's a single day request AND they haven't manually provided multiple chunks
-                        if (end && totalHours > 0 && isSingleDay && timesList.length === 1) {
-                            let sH = parseInt(start.split(':')[0], 10);
-                            let sM = parseInt(start.split(':')[1], 10);
-                            let startMins = sH * 60 + sM;
+                pendingDates.push(currentDate);
+
+                // If we found valid times, apply them to ALL pending dates
+                if (validTimes.length > 0) {
+                    pendingDates.forEach(dateItem => {
+                        validTimes.forEach(timeObj => {
+                            let cleanTime = timeObj.str.replace(/[;:,.\s]+$/, '').trim();
+                            let description = timeObj.desc ? timeObj.desc.replace(/[;:,.\s]+$/, '').trim() : null;
                             
-                            let eH, eM;
-                            if (end === '23:59') {
-                                eH = 24; eM = 0; // use 24:00 for the mathematical end boundary
-                            } else {
-                                eH = parseInt(end.split(':')[0], 10);
-                                eM = parseInt(end.split(':')[1], 10);
+                            let formattedDate = parseFormattedDate(dateItem);
+                            let formattedTimesArray = parseFormattedTime(cleanTime);
+                            
+                            let start = formattedTimesArray[0];
+                            let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
+                            
+                            // Prevent "00:00" from displaying as end of day
+                            if (end === '00:00' || end === '24:00') {
+                                end = '23:59';
                             }
-                            let endMins = eH * 60 + eM;
-                            if (endMins <= startMins) endMins += 24 * 60; // handle overnight wrap
                             
-                            while (startMins < endMins) {
-                                let chunkEndMins = Math.min(startMins + 60, endMins); // 1 hour step
+                            let totalHours = getHoursDiff(start, end);
+
+                            // Hourly Breakdown Logic for explicit times
+                            // Only break down if it's a single day request AND they haven't manually provided multiple chunks
+                            if (end && totalHours > 0 && isSingleDay && validTimes.length === 1) {
+                                let sH = parseInt(start.split(':')[0], 10);
+                                let sM = parseInt(start.split(':')[1], 10);
+                                let startMins = sH * 60 + sM;
                                 
-                                let curH = Math.floor(startMins / 60) % 24;
-                                let curM = startMins % 60;
-                                let nextH = Math.floor(chunkEndMins / 60) % 24;
-                                let nextM = chunkEndMins % 60;
-                                
-                                let curStartStr = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
-                                let curEndStr = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
-                                
-                                if (chunkEndMins % 1440 === 0 && chunkEndMins > 0) {
-                                    curEndStr = '23:59';
+                                let eH, eM;
+                                if (end === '23:59') {
+                                    eH = 24; eM = 0; // use 24:00 for the mathematical end boundary
+                                } else {
+                                    eH = parseInt(end.split(':')[0], 10);
+                                    eM = parseInt(end.split(':')[1], 10);
                                 }
+                                let endMins = eH * 60 + eM;
+                                if (endMins <= startMins) endMins += 24 * 60; // handle overnight wrap
                                 
-                                let chunkHours = getHoursDiff(curStartStr, curEndStr);
-                                
+                                while (startMins < endMins) {
+                                    let chunkEndMins = Math.min(startMins + 60, endMins); // 1 hour step
+                                    
+                                    let curH = Math.floor(startMins / 60) % 24;
+                                    let curM = startMins % 60;
+                                    let nextH = Math.floor(chunkEndMins / 60) % 24;
+                                    let nextM = chunkEndMins % 60;
+                                    
+                                    let curStartStr = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
+                                    let curEndStr = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
+                                    
+                                    if (chunkEndMins % 1440 === 0 && chunkEndMins > 0) {
+                                        curEndStr = '23:59';
+                                    }
+                                    
+                                    let chunkHours = getHoursDiff(curStartStr, curEndStr);
+                                    
+                                    results.push({
+                                        date: formattedDate,
+                                        start: curStartStr,
+                                        end: curEndStr,
+                                        hours: chunkHours,
+                                        description: description
+                                    });
+                                    
+                                    startMins = chunkEndMins;
+                                }
+                            } else {
                                 results.push({
                                     date: formattedDate,
-                                    start: curStartStr,
-                                    end: curEndStr,
-                                    hours: chunkHours,
+                                    start: start,
+                                    end: end,
+                                    hours: totalHours,
                                     description: description
                                 });
-                                
-                                startMins = chunkEndMins;
                             }
-                        } else {
-                            results.push({
-                                date: formattedDate,
-                                start: start,
-                                end: end,
-                                hours: totalHours,
-                                description: description
-                            });
-                        }
-                    }
-                });
+                        });
+                    });
+                    // Clear pending dates after processing
+                    pendingDates = [];
+                }
             }
             return results;
         }
