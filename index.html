@@ -694,7 +694,7 @@
         
         scheduleInput.addEventListener('input', () => {
             const text = scheduleInput.value;
-            const daysMatch = text.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s+days?/i);
+            const daysMatch = text.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s*(days?|hours?|hrs?)/i);
             const hasExplicitTimes = /\d{1,2}:\d{2}/.test(text) || /AM|PM/i.test(text) || /NOON|MIDNIGHT/i.test(text);
             
             if (daysMatch && !hasExplicitTimes) {
@@ -877,7 +877,7 @@
             }
 
             // 1. Check for automated formats without explicit times
-            const daysMatch = input.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s+days?/i);
+            const daysMatch = input.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s*(days?|hours?|hrs?)/i);
             const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:[-–—]|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
             const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT/i.test(input);
 
@@ -895,7 +895,9 @@
             // Retrospective: Generate the past N days chronologically, ending on the Request Date
             if (daysMatch && (!hasExplicitTimes || (isGenericMidnightStart && !hasSpecificTimeRange))) {
                 let results = [];
-                let numDays = parseInt(daysMatch[1], 10);
+                let numVal = parseInt(daysMatch[1], 10);
+                let unit = daysMatch[2].toLowerCase();
+                let numDays = (unit.startsWith('hour') || unit.startsWith('hr')) ? Math.max(1, Math.ceil(numVal / 24)) : numVal;
                 
                 const reqDateVal = requestDateInput.value;
                 const baseRequestDate = reqDateVal ? new Date(reqDateVal) : new Date();
