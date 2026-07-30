@@ -848,7 +848,7 @@
                 // Regex matches sequences of times, strictly ensuring descriptions contain at least one letter 
                 // to prevent accidentally treating the end-time as a description.
                 let timeRegexStr = "(?:\\d{1,2}[:\\d]*\\s*(?:am|pm)?\\s*(?:[-–—,]|to|and|&)+\\s*)*\\d{1,2}[:\\d]*\\s*(?:am|pm)?";
-                let regex = new RegExp("^(" + timeRegexStr + ")\\s*[-–—]\\s*(.*[a-zA-Z].*)$", "i");
+                let regex = new RegExp("^(" + timeRegexStr + ")(?:\\s*[-–—,]\\s*|\\s+)(.*[a-zA-Z].*)$", "i");
                 
                 return timesStr.split(/\n/i).reduce((acc, t) => {
                     // Strip leading bullet points or dashes on new lines
