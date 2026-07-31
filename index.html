@@ -1130,6 +1130,25 @@
                     pendingDates = [];
                 }
             }
+            
+            // If any dates were left without explicit times attached (e.g. "Trail data for 20th July 2026.")
+            // apply the default 24/7 breakdown to them.
+            if (pendingDates.length > 0) {
+                pendingDates.forEach(dateItem => {
+                    let formattedDate = parseFormattedDate(dateItem);
+                    intervals.forEach(interval => {
+                        results.push({
+                            date: formattedDate,
+                            start: interval.start,
+                            end: interval.end,
+                            hours: interval.hours,
+                            description: null
+                        });
+                    });
+                });
+                pendingDates = [];
+            }
+
             return results;
         }
 
