@@ -836,7 +836,7 @@
         }
 
         function parseFormattedTime(timeStr) {
-            let times = timeStr.split(/\s*[-–—]\s*|\s+to\s+/i).map(t => t.trim());
+            let times = timeStr.split(/\s*[-–—]\s*|\s+(?:to|until)\s+/i).map(t => t.trim());
             
             let formatted = times.map(t => {
                 let clean = t.toUpperCase().replace(/\s/g, '');
@@ -861,41 +861,104 @@
         function parseSchedule(input) {
             // Helper to separate times and descriptions safely
             function extractTimesAndDescriptions(timesStr) {
-                // Regex matches sequences of times, strictly ensuring descriptions contain at least one letter 
-                // to prevent accidentally treating the end-time as a description.
-                let timeRegexStr = "(?:\\d{1,2}[:\\d]*\\s*(?:am|pm)?\\s*(?:[-–—,]|to|and|&)+\\s*)*\\d{1,2}[:\\d]*\\s*(?:am|pm)?";
-                let regex = new RegExp("^(" + timeRegexStr + ")(?:\\s*[-–—,]\\s*|\\s+)(.*[a-zA-Z].*)$", "i");
+                let results = [];
+                let lines = timesStr.split(/\n/i);
                 
-                return timesStr.split(/\n/i).reduce((acc, t) => {
-                    // Strip leading bullet points or dashes on new lines
-                    t = t.replace(/^[-\s–—*•]+/, '').trim();
-                    // Strip leading/trailing 'and' or '&' that might be left over from line breaks
-                    t = t.replace(/^(?:and|&)\s+/i, '').trim();
-                    t = t.replace(/\s+(?:and|&)$/i, '').trim();
+                // Split by commas, semicolons, or the word 'and'
+                let splitRegex = /\s*[,;]\s*(?:and\s+)?|\s+and\s+|\s+&\s+/i;
+                
+                // Extremely robust pattern to recognize exactly what a time block looks like
+                const timeTerm = "\\d{1,2}(?::\\d{2})?\\s*(?:am|pm|noon|midnight|hrs)?";
+                const separator = "\\s*(?:[-–—]|to|until)\\s*";
+                const timePattern = new RegExp("^(" + timeTerm + "(?:" + separator + timeTerm + ")?)", "i");
+                
+                lines.forEach(line => {
+                    // Clean leading junk
+                    line = line.replace(/^[-\s–—*•]+/, '').trim();
+                    line = line.replace(/^(?:and|&)\s+/i, '').trim();
+                    line = line.replace(/\s+(?:and|&)$/i, '').trim();
+                    if (!line) return;
+
+                    let chunks = line.split(splitRegex).map(c => c.trim()).filter(c => c.length > 0);
                     
-                    if (!t) return acc;
-                    
-                    // Safely split strings of multiple chunks whether separated by commas, semicolons, 'and', or both
-                    let splitRegex = /\s*[,;]\s*(?:and\s+)?|\s+and\s+|\s+&\s+/i;
-                    
-                    let timeDescMatch = t.match(regex);
-                    if (timeDescMatch) {
-                        let timePart = timeDescMatch[1];
-                        let descPart = timeDescMatch[2];
-                        let subTimes = timePart.split(splitRegex).map(st => st.trim()).filter(st => st.length > 0);
-                        subTimes.forEach(st => acc.push({ str: st, desc: descPart }));
-                    } else {
-                        let subTimes = t.split(splitRegex).map(st => st.trim()).filter(st => st.length > 0);
-                        subTimes.forEach(st => acc.push({ str: st, desc: null }));
-                    }
-                    return acc;
-                }, []);
+                    chunks.forEach(chunk => {
+                        let match = chunk.match(timePattern);
+                        if (match) {
+                            let timeStr = match[1];
+                            // Anything remaining in the chunk after the time is the description
+                            let desc = chunk.substring(timeStr.length).replace(/^[-\s–—,:.]+/, '').trim();
+                            results.push({ str: timeStr, desc: desc || null });
+                        } else {
+                            // If it's not a time, append it as a description to the previous time
+                            if (results.length > 0) {
+                                if (results[results.length - 1].desc) {
+                                     results[results.length - 1].desc += ", " + chunk;
+                                } else {
+                                     results[results.length - 1].desc = chunk;
+                                }
+                            }
+                        }
+                    });
+                });
+                return results;
             }
 
-            // 1. Check for automated formats without explicit times
+            // 1. PRE-PROCESS: Break down any Date Ranges into scattered explicit dates before parsing
+            // Converts formats like "01/07 to 05/07" directly into "01/07, 02/07, 03/07, 04/07, 05/07"
+            const datePattern = "(\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\\s+\\d{2,4})?)";
+            const rangeRegex = new RegExp(`${datePattern}\\s*(?:[-–—]|to|through)\\s*${datePattern}`, 'gi');
+            
+            function parseToDateObj(dateStr) {
+                if (dateStr.includes('/')) {
+                    let parts = dateStr.split('/');
+                    let day = parseInt(parts[0], 10);
+                    let month = parseInt(parts[1], 10) - 1; 
+                    let year = parts[2] ? parseInt(parts[2], 10) : 2026;
+                    if (year < 100) year += 2000;
+                    return new Date(year, month, day);
+                }
+                
+                let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?:\s+(\d{2,4}))?/i);
+                if (!matches) return null;
+                let day = parseInt(matches[1], 10);
+                let monthStr = matches[2].toLowerCase();
+                let monthMap = {
+                    january:0, jan:0, february:1, feb:1, march:2, mar:2, april:3, apr:3, may:4,
+                    june:5, jun:5, july:6, jul:6, august:7, aug:7, september:8, sep:8, october:9, oct:9,
+                    november:10, nov:10, december:11, dec:11
+                };
+                let month = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
+                let year = matches[3] ? parseInt(matches[3], 10) : 2026;
+                if (year < 100) year += 2000;
+                return new Date(year, month, day);
+            }
+
+            input = input.replace(rangeRegex, (match, startStr, endStr) => {
+                let startDate = parseToDateObj(startStr);
+                let endDate = parseToDateObj(endStr);
+                if (!startDate || !endDate) return match; 
+
+                if (startDate > endDate) {
+                    let temp = startDate; startDate = endDate; endDate = temp;
+                }
+                
+                let expandedDates = [];
+                let current = new Date(startDate);
+                let safety = 0;
+                while (current <= endDate && safety < 100) { // Safety break at 100 days
+                    let dd = current.getDate().toString().padStart(2, '0');
+                    let mm = (current.getMonth() + 1).toString().padStart(2, '0');
+                    let yyyy = current.getFullYear();
+                    expandedDates.push(`${dd}/${mm}/${yyyy}`);
+                    current.setDate(current.getDate() + 1);
+                    safety++;
+                }
+                return expandedDates.join(', ');
+            });
+
+            // 2. Check for automated formats without explicit times
             const daysMatch = input.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s*(days?|hours?|hrs?)/i);
-            const rangeMatch = input.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*(?:[-–—]|to)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
-            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT/i.test(input);
+            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT|HRS/i.test(input);
 
             // Recognize conversational start times (like "from 00:00") so they don't break the automated date ranges
             const isGenericMidnightStart = /from\s+(?:00:00|midnight|12(?::00)?\s*AM)\s*(?:for|on)?/i.test(input);
@@ -940,87 +1003,7 @@
                 return results;
             }
 
-            // Date Range: Support custom times or default 4 intervals
-            if (rangeMatch) {
-                let results = [];
-                
-                function parseDatePart(dateStr) {
-                    let parts = dateStr.split('/');
-                    let day = parseInt(parts[0], 10);
-                    let month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
-                    let year = 2026;
-                    if (parts[2]) {
-                        year = parseInt(parts[2], 10);
-                        if (year < 100) year += 2000;
-                    }
-                    return new Date(year, month, day);
-                }
-
-                let startDate = parseDatePart(rangeMatch[1]);
-                let endDate = parseDatePart(rangeMatch[2]);
-                
-                if (startDate > endDate) {
-                    let temp = startDate; startDate = endDate; endDate = temp;
-                }
-
-                // Extract custom times if they are included alongside the date range
-                let customIntervals = [];
-                if (hasExplicitTimes && (!isGenericMidnightStart || hasSpecificTimeRange)) {
-                    // Remove the date range itself from the string so we only parse the remaining times
-                    let textWithoutRange = input.replace(rangeMatch[0], '');
-                    let timesStr = textWithoutRange.replace(/(?:GPS\s+|Trail\s+)?Data\s+request|from|between the hours of|between|for/gi, '').replace(/^[-\s–—:]+/, '').trim();
-                    
-                    let timesList = extractTimesAndDescriptions(timesStr);
-                    
-                    timesList.forEach(timeObj => {
-                        let cleanTime = timeObj.str.replace(/[;:,.\s]+$/, '').trim();
-                        let description = timeObj.desc ? timeObj.desc.replace(/[;:,.\s]+$/, '').trim() : null;
-                        // Ignore leftover text, ensure it has digits
-                        if (cleanTime && /\d/.test(cleanTime)) {
-                            let formattedTimesArray = parseFormattedTime(cleanTime);
-                            let start = formattedTimesArray[0];
-                            let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
-                            
-                            if (end === '00:00' || end === '24:00') end = '23:59';
-                            
-                            // Validate it actually extracted a valid time chunk
-                            if (start && start.includes(':')) {
-                                customIntervals.push({
-                                    start: start,
-                                    end: end,
-                                    hours: getHoursDiff(start, end),
-                                    description: description
-                                });
-                            }
-                        }
-                    });
-                }
-
-                // If no valid explicit chunks were provided, fall back to default 24/7 breakdown
-                let intervalsToUse = customIntervals.length > 0 ? customIntervals : intervals;
-
-                let current = new Date(startDate);
-                while (current <= endDate) {
-                    let dd = current.getDate().toString().padStart(2, '0');
-                    let mm = (current.getMonth() + 1).toString().padStart(2, '0');
-                    let yyyy = current.getFullYear();
-                    let formattedDate = `${dd}/${mm}/${yyyy}`;
-
-                    intervalsToUse.forEach(interval => {
-                        results.push({
-                            date: formattedDate,
-                            start: interval.start,
-                            end: interval.end,
-                            hours: interval.hours,
-                            description: interval.description || null
-                        });
-                    });
-                    current.setDate(current.getDate() + 1);
-                }
-                return results;
-            }
-
-            // 2. Specific Dates with Custom Times
+            // 3. Specific Dates with Custom Times
             const dateRegex = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{2,4})?)/gi;
             
             let matches = [];
@@ -1148,6 +1131,14 @@
                 });
                 pendingDates = [];
             }
+
+            // Sort scattered dates chronologically before rendering
+            results.sort((a, b) => {
+                const dateA = a.date.split('/').reverse().join('');
+                const dateB = b.date.split('/').reverse().join('');
+                if (dateA !== dateB) return dateA.localeCompare(dateB);
+                return a.start.localeCompare(b.start);
+            });
 
             return results;
         }
