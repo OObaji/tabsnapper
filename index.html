@@ -222,6 +222,19 @@
                             <input type="text" id="fileNameOutputText" readonly class="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-purple-50/50 dark:bg-slate-900/80 text-sm font-mono focus:outline-none text-slate-800 dark:text-slate-200 cursor-text selection:bg-purple-200 selection:text-purple-900">
                         </div>
 
+                        <!-- Comment Message Card -->
+                        <div id="commentMessageContainer" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-amber-200 dark:border-amber-900/50 p-6 animate-fade-in relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                            <div class="flex items-center justify-between mb-3 pl-2">
+                                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">Comment Message</h3>
+                                <button id="copyCommentBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    <span>Copy Message</span>
+                                </button>
+                            </div>
+                            <input type="text" id="commentOutputText" readonly value="Trail data sent" class="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-amber-50/50 dark:bg-slate-900/80 text-sm font-mono focus:outline-none text-slate-800 dark:text-slate-200 cursor-text selection:bg-amber-200 selection:text-amber-900">
+                        </div>
+
                     </div>
 
                     <!-- Right Column: Parsed Time Frames Workspace -->
@@ -684,6 +697,9 @@
         const fileNameContainer = document.getElementById('fileNameContainer');
         const fileNameOutputText = document.getElementById('fileNameOutputText');
         const copyFileNameBtn = document.getElementById('copyFileNameBtn');
+        const commentMessageContainer = document.getElementById('commentMessageContainer');
+        const commentOutputText = document.getElementById('commentOutputText');
+        const copyCommentBtn = document.getElementById('copyCommentBtn');
 
         // Set default request date to today
         const today = new Date();
@@ -1130,6 +1146,7 @@
             bulkOutputContainer.classList.add('hidden');
             emailTemplateContainer.classList.add('hidden');
             fileNameContainer.classList.add('hidden');
+            commentMessageContainer.classList.add('hidden');
             parserStats.classList.add('hidden');
             limitWarning.classList.add('hidden');
             
@@ -1195,6 +1212,10 @@ Kind regards,`;
             
             fileNameOutputText.value = `Trail data request - DW - ${dotFormattedDate}`;
             fileNameContainer.classList.remove('hidden');
+
+            // --- Show Comment Template ---
+            commentOutputText.value = "Trail data sent";
+            commentMessageContainer.classList.remove('hidden');
 
             // Render List View Rows
             parsedItems.forEach((item, index) => {
@@ -1693,6 +1714,22 @@ Kind regards,`;
                 copyFileNameBtn.innerHTML = originalHtml;
                 copyFileNameBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
                 copyFileNameBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+            }, 2000);
+        });
+
+        // Copy Comment Message logic
+        copyCommentBtn.addEventListener('click', () => {
+            commentOutputText.select();
+            document.execCommand("copy");
+            
+            const originalHtml = copyCommentBtn.innerHTML;
+            copyCommentBtn.innerHTML = `Copied!`;
+            copyCommentBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            copyCommentBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+            setTimeout(() => {
+                copyCommentBtn.innerHTML = originalHtml;
+                copyCommentBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                copyCommentBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
             }, 2000);
         });
 
