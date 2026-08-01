@@ -168,7 +168,16 @@
                                 Schedule Request Parser
                             </h2>
                             <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Paste your schedule request text below.</p>
-                            
+
+                            <!-- Gemini API Key Field -->
+                            <div id="apiKeyContainer" class="mb-4 flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-300 dark:border-slate-600">
+                                <div class="flex items-center gap-3">
+                                    <label for="geminiApiKeyInput" class="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Gemini API Key:</label>
+                                    <input type="password" id="geminiApiKeyInput" placeholder="Paste your Gemini API key" autocomplete="off" class="bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md px-2 py-1 flex-grow border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">
+                                </div>
+                                <p class="text-xs text-slate-400 dark:text-slate-500">Stored only in this browser (localStorage). Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="underline hover:text-blue-500">aistudio.google.com/apikey</a>. Without a key, a basic built-in parser is used instead.</p>
+                            </div>
+
                             <!-- Request Date Field -->
                             <div id="requestDateContainer" class="mb-4 flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-300 dark:border-slate-600 transition-all duration-300 opacity-50 grayscale">
                                 <label for="requestDateInput" class="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Request Date:</label>
@@ -182,6 +191,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                                 Parse Request
                             </button>
+                            <div id="parserStatusMessage" class="hidden mt-3 px-4 py-3 rounded-lg text-sm font-medium transition-all w-full text-center"></div>
                         </div>
 
                         <!-- Bulk Output Card -->
@@ -700,10 +710,32 @@
         const commentMessageContainer = document.getElementById('commentMessageContainer');
         const commentOutputText = document.getElementById('commentOutputText');
         const copyCommentBtn = document.getElementById('copyCommentBtn');
+        const geminiApiKeyInput = document.getElementById('geminiApiKeyInput');
+        const parserStatusMessage = document.getElementById('parserStatusMessage');
 
         // Set default request date to today
         const today = new Date();
         requestDateInput.value = today.toISOString().split('T')[0];
+
+        // --- Gemini API Key persistence (stored locally in the browser only) ---
+        const GEMINI_API_KEY_STORAGE_KEY = 'geminiApiKey';
+        geminiApiKeyInput.value = localStorage.getItem(GEMINI_API_KEY_STORAGE_KEY) || '';
+        geminiApiKeyInput.addEventListener('input', () => {
+            localStorage.setItem(GEMINI_API_KEY_STORAGE_KEY, geminiApiKeyInput.value.trim());
+        });
+
+        function showParserMessage(msg, isError = false) {
+            parserStatusMessage.textContent = msg;
+            parserStatusMessage.className = `mt-3 px-4 py-3 rounded-lg text-sm font-medium transition-all w-full text-center ${
+                isError
+                ? 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-200 dark:border-red-800'
+                : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-800'
+            } block animate-fade-in`;
+        }
+
+        function hideParserMessage() {
+            parserStatusMessage.classList.add('hidden');
+        }
 
         // Dynamic UI feedback for the Request Date field
         const requestDateContainer = document.getElementById('requestDateContainer');
@@ -858,6 +890,159 @@
             return formatted; // Return the array of times
         }
 
+        // Default 6-hour breakdown used whenever a date is requested with no explicit time attached
+        const DAY_QUARTER_INTERVALS = [
+            { start: "00:00", end: "06:00", hours: 6 },
+            { start: "06:00", end: "12:00", hours: 6 },
+            { start: "12:00", end: "18:00", hours: 6 },
+            { start: "18:00", end: "23:59", hours: 6 }
+        ];
+
+        // Asks Gemini to turn arbitrary free-text schedule requests into structured {date, start, end, description} events.
+        async function callGeminiParse(text, requestDateStr, apiKey) {
+            const schema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        date: { type: "STRING", description: "The resolved calendar date in DD/MM/YYYY format." },
+                        start: { type: "STRING", nullable: true, description: "Start time in 24-hour HH:MM format, or null if no time was specified for this date." },
+                        end: { type: "STRING", nullable: true, description: "End time in 24-hour HH:MM format, or null if open-ended/unspecified." },
+                        description: { type: "STRING", nullable: true, description: "Short label or note attached to this specific time block, or null." }
+                    },
+                    required: ["date"]
+                }
+            };
+
+            const prompt = `You are a precise schedule request parser for a CCTV/trail-footage capture tool.
+The "request date" (used to resolve relative phrases like "last 7 days", "past 3 days", "yesterday") is ${requestDateStr} (YYYY-MM-DD).
+
+Read the freeform request text below and extract every distinct calendar date being requested, as one JSON array entry per individual calendar day. Expand any date range or "last/past N days" phrase into one entry per day - never group multiple days into a single entry.
+
+For each entry:
+- "date": the resolved date in DD/MM/YYYY format. Assume the year 2026 if no year is stated and it isn't resolvable from a relative phrase.
+- "start" / "end": convert any explicit time mentioned (e.g. "8am", "14:30", "noon", "midnight", "9-5") to 24-hour HH:MM. If NO explicit time is mentioned anywhere for that date, set both "start" and "end" to null. If only a start time is given, set "end" to null.
+- "description": a short label attached to that specific time block (e.g. a location or reason), else null.
+
+Respond with ONLY the JSON array matching the schema. No prose, no markdown fences.
+
+Request text:
+"""
+${text}
+"""`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: schema,
+                        temperature: 0
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                let errMsg = `Gemini API error (${response.status})`;
+                try {
+                    const errBody = await response.json();
+                    if (errBody?.error?.message) errMsg = errBody.error.message;
+                } catch {}
+                throw new Error(errMsg);
+            }
+
+            const data = await response.json();
+            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!rawText) throw new Error('Gemini returned an empty response.');
+
+            let parsed;
+            try {
+                parsed = JSON.parse(rawText);
+            } catch {
+                throw new Error('Gemini returned malformed JSON.');
+            }
+            if (!Array.isArray(parsed)) throw new Error('Gemini response was not a list of events.');
+            return parsed;
+        }
+
+        // Turns Gemini's resolved {date, start, end, description} events into the renderable interval list,
+        // applying the same 6-hour (no time given) / 1-hour (single explicit range) breakdown as the basic parser.
+        function expandParsedEvents(rawEvents) {
+            const isSingleDate = rawEvents.length === 1;
+            let results = [];
+
+            rawEvents.forEach(ev => {
+                if (!ev || !ev.date) return;
+
+                if (!ev.start) {
+                    DAY_QUARTER_INTERVALS.forEach(interval => {
+                        results.push({ date: ev.date, start: interval.start, end: interval.end, hours: interval.hours, description: ev.description || null });
+                    });
+                    return;
+                }
+
+                let start = ev.start;
+                let end = ev.end || null;
+                if (end === '00:00' || end === '24:00') end = '23:59';
+                let totalHours = getHoursDiff(start, end);
+
+                if (end && totalHours > 0 && isSingleDate) {
+                    let sH = parseInt(start.split(':')[0], 10);
+                    let sM = parseInt(start.split(':')[1], 10);
+                    let startMins = sH * 60 + sM;
+
+                    let eH, eM;
+                    if (end === '23:59') {
+                        eH = 24; eM = 0;
+                    } else {
+                        eH = parseInt(end.split(':')[0], 10);
+                        eM = parseInt(end.split(':')[1], 10);
+                    }
+                    let endMins = eH * 60 + eM;
+                    if (endMins <= startMins) endMins += 24 * 60;
+
+                    while (startMins < endMins) {
+                        let chunkEndMins = Math.min(startMins + 60, endMins);
+
+                        let curH = Math.floor(startMins / 60) % 24;
+                        let curM = startMins % 60;
+                        let nextH = Math.floor(chunkEndMins / 60) % 24;
+                        let nextM = chunkEndMins % 60;
+
+                        let curStartStr = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
+                        let curEndStr = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
+
+                        if (chunkEndMins % 1440 === 0 && chunkEndMins > 0) {
+                            curEndStr = '23:59';
+                        }
+
+                        results.push({
+                            date: ev.date,
+                            start: curStartStr,
+                            end: curEndStr,
+                            hours: getHoursDiff(curStartStr, curEndStr),
+                            description: ev.description || null
+                        });
+
+                        startMins = chunkEndMins;
+                    }
+                } else {
+                    results.push({ date: ev.date, start, end, hours: totalHours, description: ev.description || null });
+                }
+            });
+
+            results.sort((a, b) => {
+                const dateA = a.date.split('/').reverse().join('');
+                const dateB = b.date.split('/').reverse().join('');
+                if (dateA !== dateB) return dateA.localeCompare(dateB);
+                return a.start.localeCompare(b.start);
+            });
+
+            return results;
+        }
+
         function parseSchedule(input) {
             // Helper to separate times and descriptions safely
             function extractTimesAndDescriptions(timesStr) {
@@ -964,12 +1149,7 @@
             const isGenericMidnightStart = /from\s+(?:00:00|midnight|12(?::00)?\s*AM)\s*(?:for|on)?/i.test(input);
             const hasSpecificTimeRange = /\d{1,2}:\d{2}\s*(?:[-–—]|to|until)\s*\d{1,2}:\d{2}/i.test(input);
 
-            const intervals = [
-                { start: "00:00", end: "06:00", hours: 6 },
-                { start: "06:00", end: "12:00", hours: 6 },
-                { start: "12:00", end: "18:00", hours: 6 },
-                { start: "18:00", end: "23:59", hours: 6 }
-            ];
+            const intervals = DAY_QUARTER_INTERVALS;
 
             // Retrospective: Generate the past N days chronologically, ending on the Request Date
             if (daysMatch && (!hasExplicitTimes || (isGenericMidnightStart && !hasSpecificTimeRange))) {
@@ -1143,10 +1323,36 @@
             return results;
         }
 
-        parseBtn.addEventListener('click', () => {
+        parseBtn.addEventListener('click', async () => {
             const text = scheduleInput.value;
-            const parsedItems = parseSchedule(text);
-            
+            if (!text.trim()) return;
+
+            hideParserMessage();
+            const apiKey = geminiApiKeyInput.value.trim();
+            let parsedItems;
+
+            if (apiKey) {
+                const originalBtnHTML = parseBtn.innerHTML;
+                parseBtn.disabled = true;
+                parseBtn.classList.add('opacity-60', 'cursor-not-allowed');
+                parseBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white dark:border-slate-900"></div> Parsing with Gemini...`;
+                try {
+                    const rawEvents = await callGeminiParse(text, requestDateInput.value, apiKey);
+                    parsedItems = expandParsedEvents(rawEvents);
+                } catch (err) {
+                    console.error('Gemini parse failed, falling back to the basic parser:', err);
+                    showParserMessage(`AI parsing failed (${err.message}). Used the basic built-in parser instead.`, true);
+                    parsedItems = parseSchedule(text);
+                } finally {
+                    parseBtn.disabled = false;
+                    parseBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    parseBtn.innerHTML = originalBtnHTML;
+                }
+            } else {
+                showParserMessage('No Gemini API key set - used the basic built-in parser. Add a key above for more flexible parsing.', false);
+                parsedItems = parseSchedule(text);
+            }
+
             // Set globals
             globalParsedItems = parsedItems;
             fmCurrentIndex = 0;
