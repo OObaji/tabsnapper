@@ -839,9 +839,9 @@
             let times = timeStr.split(/\s*[-–—]\s*|\s+(?:to|until)\s+/i).map(t => t.trim());
             
             let formatted = times.map(t => {
-                let clean = t.toUpperCase().replace(/\s/g, '');
-                if (clean === '12NOON' || clean === 'NOON') return '12:00';
-                if (clean === '12MIDNIGHT' || clean === 'MIDNIGHT') return '00:00';
+                let clean = t.toUpperCase().replace(/[\s.]/g, ''); // Aggressively remove spaces and dots (e.g., p.m. -> PM)
+                if (clean === '12:00MIDNIGHT' || clean === '12MIDNIGHT' || clean === 'MIDNIGHT' || clean === '00:00' || clean === '24:00') return '00:00';
+                if (clean === '12NOON' || clean === 'NOON' || clean === '12:00NOON') return '12:00';
                 
                 // Allow formats like "10AM", "4PM", "10:30AM"
                 let m = clean.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM)?$/);
@@ -862,44 +862,59 @@
             // Helper to separate times and descriptions safely
             function extractTimesAndDescriptions(timesStr) {
                 let results = [];
-                let lines = timesStr.split(/\n/i);
                 
-                // Split by commas, semicolons, or the word 'and'
-                let splitRegex = /\s*[,;]\s*(?:and\s+)?|\s+and\s+|\s+&\s+/i;
-                
-                // Extremely robust pattern to recognize exactly what a time block looks like
-                const timeTerm = "\\d{1,2}(?::\\d{2})?\\s*(?:am|pm|noon|midnight|hrs)?";
-                const separator = "\\s*(?:[-–—]|to|until)\\s*";
-                const timePattern = new RegExp("^(" + timeTerm + "(?:" + separator + timeTerm + ")?)", "i");
-                
-                lines.forEach(line => {
-                    // Clean leading junk
-                    line = line.replace(/^[-\s–—*•]+/, '').trim();
-                    line = line.replace(/^(?:and|&)\s+/i, '').trim();
-                    line = line.replace(/\s+(?:and|&)$/i, '').trim();
-                    if (!line) return;
+                // Clean up general junk upfront
+                timesStr = timesStr.replace(/FROM|times:|times|between the hours of|between the hours|between|for/gi, ' ')
+                                   .trim();
 
-                    let chunks = line.split(splitRegex).map(c => c.trim()).filter(c => c.length > 0);
-                    
-                    chunks.forEach(chunk => {
-                        let match = chunk.match(timePattern);
-                        if (match) {
-                            let timeStr = match[1];
-                            // Anything remaining in the chunk after the time is the description
-                            let desc = chunk.substring(timeStr.length).replace(/^[-\s–—,:.]+/, '').trim();
-                            results.push({ str: timeStr, desc: desc || null });
-                        } else {
-                            // If it's not a time, append it as a description to the previous time
-                            if (results.length > 0) {
-                                if (results[results.length - 1].desc) {
-                                     results[results.length - 1].desc += ", " + chunk;
-                                } else {
-                                     results[results.length - 1].desc = chunk;
-                                }
-                            }
-                        }
+                // Strict time: e.g. 10am, 10:30, 2pm, noon, midnight (requires text indicator or colon)
+                const strictT = "(?:\\d{1,2}(?::\\d{2})?\\s*(?:am|pm|a\\.m\\.|p\\.m\\.|noon|midnight|hrs?)(?!\\w)|\\d{1,2}:\\d{2})";
+                // Relaxed time: just digits (e.g. 10)
+                const relaxedT = "\\d{1,2}";
+                // Separator: dash, 'to', 'until'
+                const sep = "\\s*(?:[-–—]|to|until)\\s*";
+                
+                // Pattern: strict-strict, relaxed-strict, strict-relaxed, relaxed-relaxed, or a single strict time
+                const timePattern = new RegExp(
+                    "\\b(" +
+                    strictT + sep + strictT + "|" +
+                    relaxedT + sep + strictT + "|" +
+                    strictT + sep + relaxedT + "|" +
+                    relaxedT + sep + relaxedT + "|" +
+                    strictT +
+                    ")\\b", "gi"
+                );
+                
+                let match;
+                let matchesList = [];
+                
+                // Find all time expressions directly, bypassing punctuation errors
+                while ((match = timePattern.exec(timesStr)) !== null) {
+                    matchesList.push({
+                        str: match[1],
+                        start: match.index,
+                        end: timePattern.lastIndex
                     });
-                });
+                }
+                
+                // Extract descriptions existing *between* the matched times
+                for (let i = 0; i < matchesList.length; i++) {
+                    let currentMatch = matchesList[i];
+                    let descStart = currentMatch.end;
+                    let descEnd = (i + 1 < matchesList.length) ? matchesList[i+1].start : timesStr.length;
+                    
+                    let rawDesc = timesStr.substring(descStart, descEnd);
+                    
+                    // Aggressive cleaning for the description block to strip leftover commas/dashes
+                    let cleanDesc = rawDesc.replace(/^[-\s–—,;&.]+/, '').replace(/[-\s–—,;&.]+$/, '').trim();
+                    cleanDesc = cleanDesc.replace(/^(?:and|&)$/i, '').trim();
+                    
+                    results.push({
+                        str: currentMatch.str,
+                        desc: cleanDesc || null
+                    });
+                }
+                
                 return results;
             }
 
@@ -1049,6 +1064,11 @@
                             
                             // Prevent "00:00" from displaying as end of day
                             if (end === '00:00' || end === '24:00') {
+                                end = '23:59';
+                            }
+                            
+                            // Smart Midnight Detection (e.g., "11PM-12:00" implies midnight)
+                            if (end === '12:00' && parseInt(start.split(':')[0], 10) >= 12) {
                                 end = '23:59';
                             }
                             
