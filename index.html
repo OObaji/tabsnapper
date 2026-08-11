@@ -799,40 +799,44 @@
         }
 
         function parseSchedule(input) {
-            // Helper to separate times and descriptions safely
-            function extractTimesAndDescriptions(timesStr) {
-                let timeRegexStr = "(?:\\d{1,2}[:\\d]*\\s*(?:am|pm|noon|midnight|hrs)?\\s*(?:[-–—,]|to|and|&)+\\s*)*\\d{1,2}[:\\d]*\\s*(?:am|pm|noon|midnight|hrs)?";
-                let regex = new RegExp("^(" + timeRegexStr + ")(?:\\s*[-–—,]\\s*|\\s+)(.*[a-zA-Z].*)$", "i");
+            // Smarter Pattern-Matching Algorithm: Extracts pairs of times dynamically and captures leftover text as descriptions
+            function extractTimesAndDescriptions(rawStr) {
+                // Clean up common prefixes that aren't times or descriptions
+                let str = rawStr.replace(/^(?:times:?|from|for|:)\s+/i, '').trim();
                 
-                return timesStr.split(/\n/i).reduce((acc, t) => {
-                    t = t.replace(/^(?:and|&)\s+/i, '').replace(/\s+(?:and|&)$/i, '').trim();
-                    if (!t) return acc;
+                // Smart Regex: Matches pairs of times separated by dashes/to/until, catching 24hr and 12hr formats cleanly
+                const pairRegex = /(\d{1,2}(?::\d{2})?\s*(?:am|pm|noon|midnight|hrs)?)\s*[-–—tountil]+\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|noon|midnight|hrs)?|\d{2}:\d{2})/gi;
+                
+                let times = [];
+                let match;
+                let cleanStrForDesc = str;
+                
+                while ((match = pairRegex.exec(str)) !== null) {
+                    times.push({
+                        startStr: match[1].trim(),
+                        endStr: match[2].trim()
+                    });
+                    // Remove the matched time block from the string to isolate descriptions
+                    cleanStrForDesc = cleanStrForDesc.replace(match[0], ' ');
+                }
+                
+                // Clean up the leftover text (description)
+                let description = cleanStrForDesc
+                    .replace(/[,;&]/g, ' ')
+                    .replace(/\band\b/gi, ' ')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
                     
-                    let timePart = t;
-                    let descPart = null;
-                    
-                    let match = t.match(regex);
-                    if (match) {
-                        timePart = match[1];
-                        descPart = match[2];
-                    }
-                    
-                    const chainRegex = new RegExp(`(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm|noon|midnight|hrs?)?)(?:\\s*[-–—tountil]+\\s*(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm|noon|midnight|hrs?)?))?`, "gi");
-                    
-                    let timeMatch;
-                    while ((timeMatch = chainRegex.exec(timePart)) !== null) {
-                        if (!timeMatch[2] && !/[:a-z]/i.test(timeMatch[1]) && parseInt(timeMatch[1]) > 24) continue;
-                        acc.push({
-                            startStr: timeMatch[1],
-                            endStr: timeMatch[2],
-                            description: descPart ? descPart.trim() : null
-                        });
-                    }
-                    return acc;
-                }, []);
+                // Discard garbage strings (e.g., if only a rogue comma was left over)
+                if (!/[a-zA-Z]/.test(description) || description.length <= 2) {
+                    description = null;
+                }
+                
+                return times.map(t => ({...t, description: description}));
             }
 
-            let text = input.replace(/GPS Data Request|Trail Data Request|Zoomed in maps.*?red circles\.?/gi, ' ').trim();
+            // aggressive cleanup to remove headers that mess up parsing
+            let text = input.replace(/(?:GPS|Trail|Trail Mon(?:itoring)?) Data Request|Zoomed in maps.*?red circles\.?|TRAIL MON(?:ITORING)? REQUEST(?: FOR)?\s*:-?/gi, ' ').trim();
             
             // 1. Check for automated formats (past X days/hours)
             const daysMatch = text.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s*(days?|hours?|hrs?)/i);
@@ -944,17 +948,14 @@
                     datesToProcess.forEach(dStr => {
                         let fDate = parseFormattedDate(dStr);
                         if (extractedTimes.length > 0) {
-                            extractedTimes.forEach((tObj, idx, arr) => {
+                            extractedTimes.forEach((tObj) => {
                                 let s = parseFormattedTime(tObj.startStr);
-                                let e = tObj.endStr ? parseFormattedTime(tObj.endStr) : null;
+                                let e = parseFormattedTime(tObj.endStr);
                                 
-                                if (!e && idx < arr.length - 1) {
-                                    e = parseFormattedTime(arr[idx+1].startStr); 
-                                    arr.splice(idx+1, 1);
-                                }
-                                
+                                // Smart midnight wrap
                                 if (e === '00:00' || e === '24:00') e = '23:59';
-                                if (e === '12:00' && parseInt(s.split(':')[0]) >= 12) e = '23:59'; 
+                                if (e === '12:00' && parseInt(s.split(':')[0], 10) >= 12) e = '23:59'; 
+                                if (e === '12:00' && tObj.endStr.toUpperCase().includes('MIDNIGHT')) e = '23:59';
                                 
                                 parsedResults.push({
                                     id: Math.random().toString(36).substr(2, 9),
