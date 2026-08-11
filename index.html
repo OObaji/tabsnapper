@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        /* Custom animations and styling */
         @keyframes fade-in {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -27,7 +26,6 @@
         .dark .shimmer {
             background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
         }
-        /* Custom scrollbar for parser list */
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
@@ -264,8 +262,8 @@
                             
                             <!-- Tracking Stats Banner -->
                             <div id="parserStats" class="hidden flex flex-wrap gap-2 text-xs font-bold items-center">
-                                <span id="reqMapsBadge" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent">0 Maps Required</span>
-                                <span id="genMapsBadge" class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">0 Generated</span>
+                                <span id="reqMapsBadge" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent">0 Time Periods</span>
+                                <span id="genMapsBadge" class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">0 Maps Generated</span>
                                 <span id="totalHoursBadge" class="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">0 Total Hours</span>
                             </div>
                             
@@ -314,7 +312,20 @@
                                     </button>
                                 </div>
                                 
-                                <div class="text-center mt-3 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                                <div class="flex flex-col sm:flex-row w-full gap-3 mt-3">
+                                    <button id="fmAddPartBtn" class="hidden flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-md shadow-indigo-500/20 transition-all justify-center items-center gap-2">
+                                        ➕ Add Extra Map (Stay)
+                                    </button>
+                                    <button id="fmSplitBtn" class="hidden flex-1 py-3 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 dark:hover:bg-purple-900/60 rounded-xl text-sm font-bold shadow-sm transition-all justify-center items-center gap-2">
+                                        ✂️ Split Hourly
+                                    </button>
+                                </div>
+
+                                <div id="fmMapsCount" class="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-4 hidden">
+                                    ✅ 0 Maps captured for this period.
+                                </div>
+
+                                <div class="text-center mt-4 text-xs text-slate-400 dark:text-slate-500 font-medium">
                                     Shortcuts: <kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">C</kbd> Copy Both • <kbd class="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">Enter</kbd> Quick Capture
                                 </div>
 
@@ -414,19 +425,13 @@
             } block animate-fade-in w-full max-w-2xl text-center`;
             statusMessage.classList.remove('hidden');
             
-            // Auto hide after 5 seconds if it's an error
             if (isError) {
-                setTimeout(() => {
-                    statusMessage.classList.add('hidden');
-                }, 5000);
+                setTimeout(() => { statusMessage.classList.add('hidden'); }, 5000);
             }
         }
 
-        function hideMessage() {
-            statusMessage.classList.add('hidden');
-        }
+        function hideMessage() { statusMessage.classList.add('hidden'); }
 
-        // --- Core Screen Capture Utility ---
         async function getScreenCaptureDataUrl() {
             if (!activeVideoStream || !activeVideoStream.active) {
                 const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -436,10 +441,7 @@
 
                 activeVideoStream = stream;
                 
-                // Handle user stopping share natively
-                activeVideoStream.getVideoTracks()[0].addEventListener('ended', () => {
-                    stopActiveStream();
-                });
+                activeVideoStream.getVideoTracks()[0].addEventListener('ended', stopActiveStream);
 
                 activeVideoElement = document.createElement('video');
                 activeVideoElement.srcObject = activeVideoStream;
@@ -448,9 +450,7 @@
 
                 await new Promise((resolve, reject) => {
                     activeVideoElement.onloadedmetadata = () => {
-                        activeVideoElement.play().then(() => {
-                            setTimeout(resolve, 300); 
-                        }).catch(reject);
+                        activeVideoElement.play().then(() => { setTimeout(resolve, 300); }).catch(reject);
                     };
                 });
                 
@@ -462,7 +462,6 @@
             canvas.height = activeVideoElement.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(activeVideoElement, 0, 0, canvas.width, canvas.height);
-            // Switched from PNG to optimized JPEG (80% quality) to save massive space
             return canvas.toDataURL('image/jpeg', 0.8);
         }
 
@@ -481,15 +480,13 @@
         function updateSessionUI(isActive) {
             if (isActive) {
                 captureBtnLabel.textContent = "Instant Capture";
-                sessionBadge.classList.remove('hidden');
-                sessionBadge.classList.add('flex');
+                sessionBadge.classList.remove('hidden'); sessionBadge.classList.add('flex');
                 changeTabBtn.classList.remove('hidden');
                 captureBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
                 captureBtn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
             } else {
                 captureBtnLabel.textContent = "Select Tab to Capture";
-                sessionBadge.classList.add('hidden');
-                sessionBadge.classList.remove('flex');
+                sessionBadge.classList.add('hidden'); sessionBadge.classList.remove('flex');
                 changeTabBtn.classList.add('hidden');
                 captureBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
                 captureBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
@@ -498,7 +495,6 @@
 
         changeTabBtn.addEventListener('click', stopActiveStream);
 
-        // The core capture logic (Updated to use utility)
         async function captureScreen() {
             hideMessage();
             try {
@@ -506,8 +502,7 @@
                 previewImage.classList.add('hidden');
                 actionButtons.classList.add('hidden');
                 loadingState.classList.remove('hidden');
-                captureBtn.disabled = true;
-                captureBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                captureBtn.disabled = true; captureBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
                 currentImageURL = await getScreenCaptureDataUrl();
 
@@ -518,13 +513,11 @@
                 captureBtn.classList.add('hidden'); 
                 previewContainer.classList.add('border-transparent');
                 previewContainer.classList.remove('border-dashed', 'border-slate-300', 'bg-gray-100');
-
             } catch (error) {
                 console.error("Capture failed:", error);
                 loadingState.classList.add('hidden');
                 emptyState.classList.remove('hidden');
-                captureBtn.disabled = false;
-                captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                captureBtn.disabled = false; captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 
                 if (error.message && error.message.includes('permissions policy')) {
                     showMessage("Capture blocked: Run this file locally to enable.", true);
@@ -540,14 +533,10 @@
         function downloadScreenshot() {
             if (!currentImageURL) return;
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            // Update extension to jpg
             const filename = `screenshot-${timestamp}.jpg`;
             const a = document.createElement('a');
-            a.href = currentImageURL;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            a.href = currentImageURL; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
         }
 
         function resetCapture() {
@@ -557,8 +546,7 @@
             actionButtons.classList.add('hidden');
             emptyState.classList.remove('hidden');
             captureBtn.classList.remove('hidden');
-            captureBtn.disabled = false;
-            captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            captureBtn.disabled = false; captureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             previewContainer.classList.remove('border-transparent');
             previewContainer.classList.add('border-dashed', 'border-slate-300', 'bg-gray-100');
             hideMessage();
@@ -578,7 +566,7 @@
         let cropImg = new Image();
         let cropResolveFn = null;
         let cropStartX, cropStartY, cropEndX, cropEndY, isCropping = false;
-        let lastCropCoords = null; // Stores coordinates for Quick Capture
+        let lastCropCoords = null; 
 
         function openCropOverlay(dataUrl) {
             return new Promise((resolve) => {
@@ -615,15 +603,12 @@
                 const w = Math.abs(cropEndX - cropStartX);
                 const h = Math.abs(cropEndY - cropStartY);
                 
-                // Save coordinates for Quick Capture feature
                 lastCropCoords = { x, y, w, h };
                 
                 const resCanvas = document.createElement('canvas');
-                resCanvas.width = w;
-                resCanvas.height = h;
+                resCanvas.width = w; resCanvas.height = h;
                 resCanvas.getContext('2d').drawImage(cropCanvas, x, y, w, h, 0, 0, w, h);
                 
-                // Switched cropped output to optimized JPEG
                 if(cropResolveFn) cropResolveFn(resCanvas.toDataURL('image/jpeg', 0.8));
             }
             closeCropOverlay();
@@ -641,18 +626,15 @@
 
         cropCanvas.addEventListener('mousedown', e => {
             const pos = getCanvasMousePosition(e);
-            cropStartX = pos.x;
-            cropStartY = pos.y;
-            cropEndX = cropStartX;
-            cropEndY = cropStartY;
+            cropStartX = pos.x; cropStartY = pos.y;
+            cropEndX = cropStartX; cropEndY = cropStartY;
             isCropping = true;
         });
 
         cropCanvas.addEventListener('mousemove', e => {
             if (!isCropping) return;
             const pos = getCanvasMousePosition(e);
-            cropEndX = pos.x;
-            cropEndY = pos.y;
+            cropEndX = pos.x; cropEndY = pos.y;
             drawCropState();
         });
 
@@ -686,7 +668,6 @@
         const scheduleInput = document.getElementById('scheduleInput');
         const parseBtn = document.getElementById('parseBtn');
         const scheduleOutput = document.getElementById('scheduleOutput');
-        const parsedCount = document.getElementById('parsedCount');
         const bulkOutputContainer = document.getElementById('bulkOutputContainer');
         const bulkOutputText = document.getElementById('bulkOutputText');
         const copyBulkBtn = document.getElementById('copyBulkBtn');
@@ -701,30 +682,25 @@
         const commentOutputText = document.getElementById('commentOutputText');
         const copyCommentBtn = document.getElementById('copyCommentBtn');
 
-        // Set default request date to today
         const today = new Date();
         requestDateInput.value = today.toISOString().split('T')[0];
 
-        // Dynamic UI feedback for the Request Date field
         const requestDateContainer = document.getElementById('requestDateContainer');
         
         scheduleInput.addEventListener('input', () => {
             const text = scheduleInput.value;
             const daysMatch = text.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s*(days?|hours?|hrs?)/i);
-            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(text) || /AM|PM/i.test(text) || /NOON|MIDNIGHT/i.test(text);
+            const hasExplicitTimes = /\d{1,2}(?::\d{2})?\s*(?:AM|PM|NOON|MIDNIGHT|HRS)/i.test(text) || /\d{1,2}:\d{2}/.test(text);
             
             if (daysMatch && !hasExplicitTimes) {
-                // Highlight field: Active mode
                 requestDateContainer.classList.remove('opacity-50', 'grayscale', 'border-slate-300', 'dark:border-slate-600');
                 requestDateContainer.classList.add('ring-2', 'ring-blue-500/30', 'border-blue-400', 'dark:border-blue-500');
             } else {
-                // Dim field: Inactive mode
                 requestDateContainer.classList.add('opacity-50', 'grayscale', 'border-slate-300', 'dark:border-slate-600');
                 requestDateContainer.classList.remove('ring-2', 'ring-blue-500/30', 'border-blue-400', 'dark:border-blue-500');
             }
         });
 
-        // Stats elements
         const parserStats = document.getElementById('parserStats');
         const reqMapsBadge = document.getElementById('reqMapsBadge');
         const genMapsBadge = document.getElementById('genMapsBadge');
@@ -733,18 +709,15 @@
         const downloadAllBtn = document.getElementById('downloadAllBtn');
         const copyAllMapsBtn = document.getElementById('copyAllMapsBtn');
 
-        // State trackers
-        let generatedMapIndices = new Set();
+        let generatedMapIds = new Set();
         let currentTotalMaps = 0;
         let currentTotalHours = 0;
-        let capturedMapsData = {};
+        let capturedMapsData = {}; 
 
-        // Focus Mode Global States
         let globalParsedItems = [];
         let isFocusMode = false;
         let fmCurrentIndex = 0;
 
-        // Toggle Focus Mode
         const toggleViewBtn = document.getElementById('toggleViewBtn');
         const focusModeContainer = document.getElementById('focusModeContainer');
         
@@ -753,21 +726,23 @@
             if (isFocusMode) {
                 toggleViewBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> List View';
                 scheduleOutput.classList.add('hidden');
-                focusModeContainer.classList.remove('hidden');
-                focusModeContainer.classList.add('flex');
+                focusModeContainer.classList.remove('hidden'); focusModeContainer.classList.add('flex');
                 updateFocusModeUI();
             } else {
                 toggleViewBtn.innerHTML = '🎯 Focus Mode';
                 scheduleOutput.classList.remove('hidden');
-                focusModeContainer.classList.add('hidden');
-                focusModeContainer.classList.remove('flex');
+                focusModeContainer.classList.add('hidden'); focusModeContainer.classList.remove('flex');
             }
         });
 
         function updateStatsUI() {
             parserStats.classList.remove('hidden');
-            genMapsBadge.textContent = `${generatedMapIndices.size} Generated`;
-            reqMapsBadge.textContent = `${currentTotalMaps} Maps Required`;
+            
+            let totalImages = 0;
+            for (let id in capturedMapsData) { totalImages += capturedMapsData[id].length; }
+            
+            genMapsBadge.textContent = `${totalImages} Maps Generated`;
+            reqMapsBadge.textContent = `${currentTotalMaps} Time Periods`;
             totalHoursBadge.textContent = `${currentTotalHours.toFixed(1)} Total Hours`;
 
             if (currentTotalMaps > 100) {
@@ -778,16 +753,12 @@
                 limitWarning.classList.add('hidden');
             }
 
-            if (generatedMapIndices.size > 0) {
-                downloadAllBtn.classList.remove('hidden');
-                downloadAllBtn.classList.add('flex');
-                copyAllMapsBtn.classList.remove('hidden');
-                copyAllMapsBtn.classList.add('flex');
+            if (totalImages > 0) {
+                downloadAllBtn.classList.remove('hidden'); downloadAllBtn.classList.add('flex');
+                copyAllMapsBtn.classList.remove('hidden'); copyAllMapsBtn.classList.add('flex');
             } else {
-                downloadAllBtn.classList.add('hidden');
-                downloadAllBtn.classList.remove('flex');
-                copyAllMapsBtn.classList.add('hidden');
-                copyAllMapsBtn.classList.remove('flex');
+                downloadAllBtn.classList.add('hidden'); downloadAllBtn.classList.remove('flex');
+                copyAllMapsBtn.classList.add('hidden'); copyAllMapsBtn.classList.remove('flex');
             }
         }
 
@@ -796,198 +767,52 @@
             const [sH, sM] = start.split(':').map(Number);
             let eH, eM;
             
-            // Treat 23:59 as a full 24 hours for accurate interval math
             if (end === '23:59') {
-                eH = 24; 
-                eM = 0;
+                eH = 24; eM = 0;
             } else {
                 [eH, eM] = end.split(':').map(Number);
             }
             
             let diff = (eH + eM/60) - (sH + sM/60);
-            if (diff < 0) diff += 24; // Handle overnight
+            if (diff < 0) diff += 24;
             return parseFloat(diff.toFixed(2));
         }
 
         function parseFormattedDate(dateStr) {
-            // Handle DD/MM or DD/MM/YY format dynamically
             if (dateStr.includes('/')) {
                 let parts = dateStr.split('/');
                 let day = parts[0];
                 let month = parts[1];
-                let year = parts[2] ? parts[2] : '2026';
-                if (year.length === 2) year = '20' + year; // Convert 26 to 2026
+                let year = parts[2] ? parts[2] : new Date().getFullYear().toString();
+                if (year.length === 2) year = '20' + year; 
                 return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
             }
             
             let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?:\s+(\d{2,4}))?/i);
             if (!matches) return dateStr;
             let day = parseInt(matches[1], 10);
-            let monthStr = matches[2].toLowerCase();
-            let monthMap = {
-                january:1, jan:1, february:2, feb:2, march:3, mar:3, april:4, apr:4, may:5,
-                june:6, jun:6, july:7, jul:7, august:8, aug:8, september:9, sep:9, october:10, oct:10,
-                november:11, nov:11, december:12, dec:12
-            };
+            let monthStr = matches[2].toLowerCase().substring(0,3);
+            let monthMap = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
             let month = monthMap[monthStr] || 1;
-            let year = matches[3] ? matches[3] : '2026'; 
+            let year = matches[3] ? matches[3] : new Date().getFullYear().toString(); 
             if (year.length === 2) year = '20' + year;
             return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
         }
 
-        function parseFormattedTime(timeStr) {
-            let times = timeStr.split(/\s*[-–—]\s*|\s+(?:to|until)\s+/i).map(t => t.trim());
-            
-            let formatted = times.map(t => {
-                let clean = t.toUpperCase().replace(/[\s.]/g, ''); // Aggressively remove spaces and dots (e.g., p.m. -> PM)
-                if (clean === '12:00MIDNIGHT' || clean === '12MIDNIGHT' || clean === 'MIDNIGHT' || clean === '00:00' || clean === '24:00') return '00:00';
-                if (clean === '12NOON' || clean === 'NOON' || clean === '12:00NOON') return '12:00';
-                
-                // Allow formats like "10AM", "4PM", "10:30AM"
-                let m = clean.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM)?$/);
-                if (!m) return t;
-                let hrs = parseInt(m[1], 10);
-                let mins = m[2] ? m[2] : '00';
-                let ampm = m[3];
-                
-                if (ampm === 'PM' && hrs < 12) hrs += 12;
-                if (ampm === 'AM' && hrs === 12) hrs = 0;
-                
-                return `${hrs.toString().padStart(2, '0')}:${mins}`;
-            });
-            return formatted; // Return the array of times
-        }
-
         function parseSchedule(input) {
-            // Helper to separate times and descriptions safely
-            function extractTimesAndDescriptions(timesStr) {
-                let results = [];
-                
-                // Clean up general junk upfront
-                timesStr = timesStr.replace(/FROM|times:|times|between the hours of|between the hours|between|for/gi, ' ')
-                                   .trim();
-
-                // Strict time: e.g. 10am, 10:30, 2pm, noon, midnight (requires text indicator or colon)
-                const strictT = "(?:\\d{1,2}(?::\\d{2})?\\s*(?:am|pm|a\\.m\\.|p\\.m\\.|noon|midnight|hrs?)(?!\\w)|\\d{1,2}:\\d{2})";
-                // Relaxed time: just digits (e.g. 10)
-                const relaxedT = "\\d{1,2}";
-                // Separator: dash, 'to', 'until'
-                const sep = "\\s*(?:[-–—]|to|until)\\s*";
-                
-                // Pattern: strict-strict, relaxed-strict, strict-relaxed, relaxed-relaxed, or a single strict time
-                const timePattern = new RegExp(
-                    "\\b(" +
-                    strictT + sep + strictT + "|" +
-                    relaxedT + sep + strictT + "|" +
-                    strictT + sep + relaxedT + "|" +
-                    relaxedT + sep + relaxedT + "|" +
-                    strictT +
-                    ")\\b", "gi"
-                );
-                
-                let match;
-                let matchesList = [];
-                
-                // Find all time expressions directly, bypassing punctuation errors
-                while ((match = timePattern.exec(timesStr)) !== null) {
-                    matchesList.push({
-                        str: match[1],
-                        start: match.index,
-                        end: timePattern.lastIndex
-                    });
-                }
-                
-                // Extract descriptions existing *between* the matched times
-                for (let i = 0; i < matchesList.length; i++) {
-                    let currentMatch = matchesList[i];
-                    let descStart = currentMatch.end;
-                    let descEnd = (i + 1 < matchesList.length) ? matchesList[i+1].start : timesStr.length;
-                    
-                    let rawDesc = timesStr.substring(descStart, descEnd);
-                    
-                    // Aggressive cleaning for the description block to strip leftover commas/dashes
-                    let cleanDesc = rawDesc.replace(/^[-\s–—,;&.]+/, '').replace(/[-\s–—,;&.]+$/, '').trim();
-                    cleanDesc = cleanDesc.replace(/^(?:and|&)$/i, '').trim();
-                    
-                    results.push({
-                        str: currentMatch.str,
-                        desc: cleanDesc || null
-                    });
-                }
-                
-                return results;
-            }
-
-            // 1. PRE-PROCESS: Break down any Date Ranges into scattered explicit dates before parsing
-            // Converts formats like "01/07 to 05/07" directly into "01/07, 02/07, 03/07, 04/07, 05/07"
-            const datePattern = "(\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\\s+\\d{2,4})?)";
-            const rangeRegex = new RegExp(`${datePattern}\\s*(?:[-–—]|to|through)\\s*${datePattern}`, 'gi');
+            // Strip out conversational preamble
+            let text = input.replace(/GPS Data Request|Trail Data Request|Zoomed in maps.*?red circles\.?/gi, ' ').trim();
             
-            function parseToDateObj(dateStr) {
-                if (dateStr.includes('/')) {
-                    let parts = dateStr.split('/');
-                    let day = parseInt(parts[0], 10);
-                    let month = parseInt(parts[1], 10) - 1; 
-                    let year = parts[2] ? parseInt(parts[2], 10) : 2026;
-                    if (year < 100) year += 2000;
-                    return new Date(year, month, day);
-                }
-                
-                let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?:\s+(\d{2,4}))?/i);
-                if (!matches) return null;
-                let day = parseInt(matches[1], 10);
-                let monthStr = matches[2].toLowerCase();
-                let monthMap = {
-                    january:0, jan:0, february:1, feb:1, march:2, mar:2, april:3, apr:3, may:4,
-                    june:5, jun:5, july:6, jul:6, august:7, aug:7, september:8, sep:8, october:9, oct:9,
-                    november:10, nov:10, december:11, dec:11
-                };
-                let month = monthMap[monthStr] !== undefined ? monthMap[monthStr] : 0;
-                let year = matches[3] ? parseInt(matches[3], 10) : 2026;
-                if (year < 100) year += 2000;
-                return new Date(year, month, day);
-            }
-
-            input = input.replace(rangeRegex, (match, startStr, endStr) => {
-                let startDate = parseToDateObj(startStr);
-                let endDate = parseToDateObj(endStr);
-                if (!startDate || !endDate) return match; 
-
-                if (startDate > endDate) {
-                    let temp = startDate; startDate = endDate; endDate = temp;
-                }
-                
-                let expandedDates = [];
-                let current = new Date(startDate);
-                let safety = 0;
-                while (current <= endDate && safety < 100) { // Safety break at 100 days
-                    let dd = current.getDate().toString().padStart(2, '0');
-                    let mm = (current.getMonth() + 1).toString().padStart(2, '0');
-                    let yyyy = current.getFullYear();
-                    expandedDates.push(`${dd}/${mm}/${yyyy}`);
-                    current.setDate(current.getDate() + 1);
-                    safety++;
-                }
-                return expandedDates.join(', ');
-            });
-
-            // 2. Check for automated formats without explicit times
-            const daysMatch = input.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s*(days?|hours?|hrs?)/i);
-            const hasExplicitTimes = /\d{1,2}:\d{2}/.test(input) || /AM|PM/i.test(input) || /NOON|MIDNIGHT|HRS/i.test(input);
-
-            // Recognize conversational start times (like "from 00:00") so they don't break the automated date ranges
-            const isGenericMidnightStart = /from\s+(?:00:00|midnight|12(?::00)?\s*AM)\s*(?:for|on)?/i.test(input);
-            const hasSpecificTimeRange = /\d{1,2}:\d{2}\s*(?:[-–—]|to|until)\s*\d{1,2}:\d{2}/i.test(input);
-
+            // 1. Check for automated formats (past X days/hours)
+            const daysMatch = text.match(/(?:the\s+)?(?:last|past|previous)\s+(\d+)\s*(days?|hours?|hrs?)/i);
+            const hasExplicitTimes = /\d{1,2}(?::\d{2})?\s*(?:AM|PM|NOON|MIDNIGHT|HRS)/i.test(text) || /\d{1,2}:\d{2}/.test(text);
+            
             const intervals = [
-                { start: "00:00", end: "06:00", hours: 6 },
-                { start: "06:00", end: "12:00", hours: 6 },
-                { start: "12:00", end: "18:00", hours: 6 },
-                { start: "18:00", end: "23:59", hours: 6 }
+                { start: "00:00", end: "06:00", hours: 6 }, { start: "06:00", end: "12:00", hours: 6 },
+                { start: "12:00", end: "18:00", hours: 6 }, { start: "18:00", end: "23:59", hours: 6 }
             ];
 
-            // Retrospective: Generate the past N days chronologically, ending on the Request Date
-            if (daysMatch && (!hasExplicitTimes || (isGenericMidnightStart && !hasSpecificTimeRange))) {
+            if (daysMatch && !hasExplicitTimes) {
                 let results = [];
                 let numVal = parseInt(daysMatch[1], 10);
                 let unit = daysMatch[2].toLowerCase();
@@ -996,289 +821,166 @@
                 const reqDateVal = requestDateInput.value;
                 const baseRequestDate = reqDateVal ? new Date(reqDateVal) : new Date();
                 
-                // i goes from numDays - 1 down to 0 to include the baseRequestDate as the final day
                 for (let i = numDays - 1; i >= 0; i--) {
-                    let d = new Date(baseRequestDate);
-                    d.setDate(baseRequestDate.getDate() - i); 
-                    
-                    let dd = d.getDate().toString().padStart(2, '0');
-                    let mm = (d.getMonth() + 1).toString().padStart(2, '0');
-                    let yyyy = d.getFullYear();
-                    let formattedDate = `${dd}/${mm}/${yyyy}`;
-
+                    let d = new Date(baseRequestDate); d.setDate(baseRequestDate.getDate() - i); 
+                    let dd = d.getDate().toString().padStart(2, '0'); let mm = (d.getMonth() + 1).toString().padStart(2, '0');
+                    let formattedDate = `${dd}/${mm}/${d.getFullYear()}`;
                     intervals.forEach(interval => {
-                        results.push({
-                            date: formattedDate,
-                            start: interval.start,
-                            end: interval.end,
-                            hours: interval.hours
-                        });
+                        results.push({ date: formattedDate, start: interval.start, end: interval.end, hours: interval.hours, description: null });
                     });
                 }
-                return results;
+                return results.map(r => ({...r, id: Math.random().toString(36).substr(2, 9)}));
             }
 
-            // 3. Specific Dates with Custom Times
-            const dateRegex = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{2,4})?)/gi;
+            // 2. Expand Date Ranges
+            const datePattern = "(\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\\s+\\d{2,4})?)";
+            const rangeRegex = new RegExp(`${datePattern}\\s*(?:[-–—]|to|through)\\s*${datePattern}`, 'gi');
             
-            let matches = [];
-            let match;
-            while ((match = dateRegex.exec(input)) !== null) {
-                matches.push(match);
-            }
-
-            let isSingleDay = matches.length === 1;
-
-            let results = [];
-            let pendingDates = []; // Track dates that share a trailing time block
-            
-            for (let i = 0; i < matches.length; i++) {
-                let currentDate = matches[i][0];
-                let startIdx = matches[i].index + currentDate.length;
-                let endIdx = (i + 1 < matches.length) ? matches[i+1].index : input.length;
-                let rawTimesStr = input.substring(startIdx, endIdx);
-
-                let timesStr = rawTimesStr.replace(/FROM|times:|times|between the hours of|between the hours|between|for/gi, '').replace(/^[-\s–—:;,]+/, '').trim();
-                let timesList = extractTimesAndDescriptions(timesStr);
-
-                // Filter out empty/invalid time strings
-                let validTimes = timesList.filter(timeObj => {
-                    let clean = timeObj.str.replace(/[;:,.\s]+$/, '').trim();
-                    return clean && /\d/.test(clean);
-                });
-
-                pendingDates.push(currentDate);
-
-                // If we found valid times, apply them to ALL pending dates
-                if (validTimes.length > 0) {
-                    pendingDates.forEach(dateItem => {
-                        validTimes.forEach(timeObj => {
-                            let cleanTime = timeObj.str.replace(/[;:,.\s]+$/, '').trim();
-                            let description = timeObj.desc ? timeObj.desc.replace(/[;:,.\s]+$/, '').trim() : null;
-                            
-                            let formattedDate = parseFormattedDate(dateItem);
-                            let formattedTimesArray = parseFormattedTime(cleanTime);
-                            
-                            let start = formattedTimesArray[0];
-                            let end = formattedTimesArray.length > 1 ? formattedTimesArray[1] : null;
-                            
-                            // Prevent "00:00" from displaying as end of day
-                            if (end === '00:00' || end === '24:00') {
-                                end = '23:59';
-                            }
-                            
-                            // Smart Midnight Detection (e.g., "11PM-12:00" implies midnight)
-                            if (end === '12:00' && parseInt(start.split(':')[0], 10) >= 12) {
-                                end = '23:59';
-                            }
-                            
-                            let totalHours = getHoursDiff(start, end);
-
-                            // Hourly Breakdown Logic for explicit times
-                            // Only break down if it's a single day request AND they haven't manually provided multiple chunks
-                            if (end && totalHours > 0 && isSingleDay && validTimes.length === 1) {
-                                let sH = parseInt(start.split(':')[0], 10);
-                                let sM = parseInt(start.split(':')[1], 10);
-                                let startMins = sH * 60 + sM;
-                                
-                                let eH, eM;
-                                if (end === '23:59') {
-                                    eH = 24; eM = 0; // use 24:00 for the mathematical end boundary
-                                } else {
-                                    eH = parseInt(end.split(':')[0], 10);
-                                    eM = parseInt(end.split(':')[1], 10);
-                                }
-                                let endMins = eH * 60 + eM;
-                                if (endMins <= startMins) endMins += 24 * 60; // handle overnight wrap
-                                
-                                while (startMins < endMins) {
-                                    let chunkEndMins = Math.min(startMins + 60, endMins); // 1 hour step
-                                    
-                                    let curH = Math.floor(startMins / 60) % 24;
-                                    let curM = startMins % 60;
-                                    let nextH = Math.floor(chunkEndMins / 60) % 24;
-                                    let nextM = chunkEndMins % 60;
-                                    
-                                    let curStartStr = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
-                                    let curEndStr = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
-                                    
-                                    if (chunkEndMins % 1440 === 0 && chunkEndMins > 0) {
-                                        curEndStr = '23:59';
-                                    }
-                                    
-                                    let chunkHours = getHoursDiff(curStartStr, curEndStr);
-                                    
-                                    results.push({
-                                        date: formattedDate,
-                                        start: curStartStr,
-                                        end: curEndStr,
-                                        hours: chunkHours,
-                                        description: description
-                                    });
-                                    
-                                    startMins = chunkEndMins;
-                                }
-                            } else {
-                                results.push({
-                                    date: formattedDate,
-                                    start: start,
-                                    end: end,
-                                    hours: totalHours,
-                                    description: description
-                                });
-                            }
-                        });
-                    });
-                    // Clear pending dates after processing
-                    pendingDates = [];
+            function parseToDateObj(dateStr) {
+                if (dateStr.includes('/')) {
+                    let parts = dateStr.split('/');
+                    let year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
+                    if (year < 100) year += 2000;
+                    return new Date(year, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
                 }
-            }
-            
-            // If any dates were left without explicit times attached (e.g. "Trail data for 20th July 2026.")
-            // apply the default 24/7 breakdown to them.
-            if (pendingDates.length > 0) {
-                pendingDates.forEach(dateItem => {
-                    let formattedDate = parseFormattedDate(dateItem);
-                    intervals.forEach(interval => {
-                        results.push({
-                            date: formattedDate,
-                            start: interval.start,
-                            end: interval.end,
-                            hours: interval.hours,
-                            description: null
-                        });
-                    });
-                });
-                pendingDates = [];
+                let matches = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+([a-zA-Z]+)(?:\s+(\d{2,4}))?/i);
+                if (!matches) return null;
+                let monthMap = {jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11};
+                let month = monthMap[matches[2].toLowerCase().substring(0,3)] !== undefined ? monthMap[matches[2].toLowerCase().substring(0,3)] : 0;
+                let year = matches[3] ? parseInt(matches[3], 10) : new Date().getFullYear();
+                if (year < 100) year += 2000;
+                return new Date(year, month, parseInt(matches[1], 10));
             }
 
-            // Sort scattered dates chronologically before rendering
-            results.sort((a, b) => {
+            text = text.replace(rangeRegex, (match, startStr, endStr) => {
+                let startDate = parseToDateObj(startStr); let endDate = parseToDateObj(endStr);
+                if (!startDate || !endDate) return match; 
+                if (startDate > endDate) { let temp = startDate; startDate = endDate; endDate = temp; }
+                let expandedDates = []; let current = new Date(startDate); let safety = 0;
+                while (current <= endDate && safety < 100) { 
+                    expandedDates.push(`${current.getDate().toString().padStart(2, '0')}/${(current.getMonth() + 1).toString().padStart(2, '0')}/${current.getFullYear()}`);
+                    current.setDate(current.getDate() + 1); safety++;
+                }
+                return expandedDates.join(', ');
+            });
+
+            function parseFormattedTime(t) {
+                let clean = t.toUpperCase().replace(/[\s.]/g, ''); 
+                if (clean === '12:00MIDNIGHT' || clean === '12MIDNIGHT' || clean === 'MIDNIGHT' || clean === '00:00' || clean === '24:00') return '00:00';
+                if (clean === '12NOON' || clean === 'NOON' || clean === '12:00NOON') return '12:00';
+                let m = clean.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM|HRS)?$/);
+                if (!m) return clean;
+                let hrs = parseInt(m[1], 10); let mins = m[2] ? m[2] : '00';
+                if (m[3] === 'PM' && hrs < 12) hrs += 12;
+                if (m[3] === 'AM' && hrs === 12) hrs = 0;
+                return `${hrs.toString().padStart(2, '0')}:${mins}`;
+            }
+
+            function extractTimes(block) {
+                if (!block.trim()) return [];
+                block = block.replace(/^(?:and|&|times:?|from)\s+/i, '').trim();
+                block = block.replace(/[;:,.\s]+$/, ''); 
+                const timeToken = "\\d{1,2}(?::\\d{2})?\\s*(?:am|pm|noon|midnight|hrs?)?";
+                const chainRegex = new RegExp(`(${timeToken})(?:\\s*[-–—tountil]+\\s*(${timeToken}))?`, "gi");
+                
+                let timeMatches = []; let match; let lastIndex = 0;
+                while ((match = chainRegex.exec(block)) !== null) {
+                    if (!match[2] && !/[:a-z]/i.test(match[1]) && parseInt(match[1]) > 24) continue;
+                    timeMatches.push({ startStr: match[1], endStr: match[2], fullMatch: match[0], index: match.index, endIndex: chainRegex.lastIndex });
+                    lastIndex = chainRegex.lastIndex;
+                }
+
+                if (timeMatches.length === 0) return [];
+                let results = [];
+                for (let i=0; i<timeMatches.length; i++) {
+                    let tm = timeMatches[i];
+                    let s = parseFormattedTime(tm.startStr);
+                    let e = tm.endStr ? parseFormattedTime(tm.endStr) : null;
+                    if (!e && i < timeMatches.length - 1 && timeMatches[i+1].index - tm.endIndex < 5) {
+                        e = parseFormattedTime(timeMatches[i+1].startStr); i++; 
+                    }
+                    if (e === '00:00' || e === '24:00') e = '23:59';
+                    if (e === '12:00' && parseInt(s.split(':')[0]) >= 12) e = '23:59'; 
+                    results.push({ start: s, end: e });
+                }
+
+                let lastEnd = timeMatches[timeMatches.length - 1].endIndex;
+                let description = block.substring(lastEnd).replace(/^[-\s–—,;]+/, '').trim();
+                if (!description || description.length < 2) description = null;
+
+                return results.map(r => ({...r, description}));
+            }
+
+            const dateRegexMatch = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:\s+\d{2,4})?)/gi;
+            let dateMatches = []; let dMatch;
+            while ((dMatch = dateRegexMatch.exec(text)) !== null) dateMatches.push(dMatch);
+
+            let parsedResults = []; let i = 0;
+            
+            while(i < dateMatches.length) {
+                let groupDates = [dateMatches[i][0]];
+                let j = i + 1; let textBetween = "";
+                while (j < dateMatches.length) {
+                    textBetween = text.substring(dateMatches[j-1].index + dateMatches[j-1][0].length, dateMatches[j].index).trim();
+                    if (/^[,&\s]*(?:and)?\s*$/i.test(textBetween)) { groupDates.push(dateMatches[j][0]); j++; } else break;
+                }
+                
+                let endIdx = (j < dateMatches.length) ? dateMatches[j].index : text.length;
+                let rawTimesStr = text.substring(dateMatches[j-1].index + dateMatches[j-1][0].length, endIdx);
+                let chunks = rawTimesStr.split(/\n|,(?=\s*\d)|(?:\s+and\s+)(?=\d)/i);
+                
+                let allTimesForGroup = [];
+                chunks.forEach(chunk => { allTimesForGroup.push(...extractTimes(chunk)); });
+                
+                groupDates.forEach(dStr => {
+                    let fDate = parseFormattedDate(dStr);
+                    if (allTimesForGroup.length > 0) {
+                        allTimesForGroup.forEach(tObj => {
+                            parsedResults.push({
+                                id: Math.random().toString(36).substr(2, 9),
+                                date: fDate, start: tObj.start, end: tObj.end,
+                                hours: getHoursDiff(tObj.start, tObj.end), description: tObj.description
+                            });
+                        });
+                    } else {
+                        intervals.forEach(interval => {
+                            parsedResults.push({
+                                id: Math.random().toString(36).substr(2, 9),
+                                date: fDate, start: interval.start, end: interval.end,
+                                hours: interval.hours, description: null
+                            });
+                        });
+                    }
+                });
+                i = j;
+            }
+
+            parsedResults.sort((a, b) => {
                 const dateA = a.date.split('/').reverse().join('');
                 const dateB = b.date.split('/').reverse().join('');
                 if (dateA !== dateB) return dateA.localeCompare(dateB);
                 return a.start.localeCompare(b.start);
             });
-
-            return results;
+            return parsedResults;
         }
 
-        parseBtn.addEventListener('click', () => {
-            const text = scheduleInput.value;
-            const parsedItems = parseSchedule(text);
-            
-            // Set globals
-            globalParsedItems = parsedItems;
-            fmCurrentIndex = 0;
-            lastCropCoords = null; // Reset crop memory on new parse
-            
-            scheduleOutput.innerHTML = ''; 
-            bulkOutputContainer.classList.add('hidden');
-            emailTemplateContainer.classList.add('hidden');
-            fileNameContainer.classList.add('hidden');
-            commentMessageContainer.classList.add('hidden');
-            parserStats.classList.add('hidden');
-            limitWarning.classList.add('hidden');
-            
-            // Reset Stats
-            generatedMapIndices.clear();
-            capturedMapsData = {};
-            currentTotalMaps = 0;
-            currentTotalHours = 0;
-            downloadAllBtn.classList.add('hidden');
-            downloadAllBtn.classList.remove('flex');
-            copyAllMapsBtn.classList.add('hidden');
-            copyAllMapsBtn.classList.remove('flex');
-            
-            if (parsedItems.length === 0) {
-                toggleViewBtn.classList.add('hidden');
-                toggleViewBtn.classList.remove('flex');
-                scheduleOutput.innerHTML = `
-                    <div class="h-full flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500 flex-grow">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-4 text-red-400 opacity-50"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                        <p class="text-sm">No dates/times found. Please check your formatting.</p>
-                    </div>`;
-                return;
-            }
-
-            // Show Focus Mode Button
-            toggleViewBtn.classList.remove('hidden');
-            toggleViewBtn.classList.add('flex');
-
-            // Calculate overall stats
-            currentTotalMaps = parsedItems.length;
-            currentTotalHours = parsedItems.reduce((sum, item) => sum + item.hours, 0);
-            updateStatsUI();
-
-            // --- Generate Bulk Text List ---
-            const bulkLines = parsedItems.map(item => {
-                let line = `${item.date} -${item.start}`;
-                if (item.end) line += `-${item.end}`;
-                if (item.description) line += ` - ${item.description}`;
-                return line;
-            });
-            
-            const joinedBulkLines = bulkLines.join('\n');
-            bulkOutputText.value = joinedBulkLines;
-            bulkOutputContainer.classList.remove('hidden');
-
-            // --- Generate Email Template ---
-            const emailTemplate = `Hi,
-
-Find attached to this email a copy of the Trail data requested.
-
-All responses or follow-ups must be sent via a new Trail request. This email chain is not monitored.
-
-Kind regards,`;
-            emailOutputText.value = emailTemplate;
-            emailTemplateContainer.classList.remove('hidden');
-
-            // --- Generate File Name Template ---
-            let fileNameDateStr = "";
-            if (parsedItems.length > 0) {
-                const firstDate = parsedItems[0].date.replace(/\//g, '.');
-                const lastDate = parsedItems[parsedItems.length - 1].date.replace(/\//g, '.');
-                
-                if (firstDate === lastDate) {
-                    fileNameDateStr = firstDate;
-                } else {
-                    fileNameDateStr = `${firstDate} - ${lastDate}`;
-                }
-            } else {
-                const reqDate = new Date();
-                const dd = String(reqDate.getDate()).padStart(2, '0');
-                const mm = String(reqDate.getMonth() + 1).padStart(2, '0');
-                const yyyy = reqDate.getFullYear();
-                fileNameDateStr = `${dd}.${mm}.${yyyy}`;
-            }
-            
-            fileNameOutputText.value = `Trail data request - DW - ${fileNameDateStr}`;
-            fileNameContainer.classList.remove('hidden');
-
-            // --- Show Comment Template ---
-            commentOutputText.value = "Trail data sent";
-            commentMessageContainer.classList.remove('hidden');
-
-            // Render List View Rows
-            parsedItems.forEach((item, index) => {
+        function renderListView() {
+            scheduleOutput.innerHTML = '';
+            globalParsedItems.forEach((item, index) => {
                 const row = document.createElement('div');
-                row.id = `row-${index}`; // Set ID for Focus Mode syncing
+                row.id = `row-${index}`; 
                 row.className = 'flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg animate-fade-in';
                 
                 const startFull = `${item.date} ${item.start}`;
                 const endFull = item.end ? `${item.date} ${item.end}` : null;
                 let displayText = item.end ? `${startFull} - ${item.end}` : startFull;
 
-                if (item.description) {
-                    displayText += ` (${item.description})`;
-                }
+                if (item.description) displayText += ` (${item.description})`;
 
-                // Hour interval badge UI
                 const intervalBadge = item.hours > 0 
                     ? `<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 text-xs font-bold rounded-full ml-2 border border-indigo-200 dark:border-indigo-800">${item.hours} hr interval</span>`
                     : '';
 
-                // Top Text + Actions Bar
                 const topBar = document.createElement('div');
                 topBar.className = 'flex flex-wrap items-center justify-between gap-4';
 
@@ -1293,60 +995,44 @@ Kind regards,`;
                     const btn = document.createElement('button');
                     btn.className = 'px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap';
                     btn.textContent = label;
-                    
                     btn.addEventListener('click', () => {
-                        const textArea = document.createElement("textarea");
-                        textArea.value = textToCopy;
-                        textArea.style.position = "absolute";
-                        textArea.style.left = "-9999px";
-                        document.body.appendChild(textArea);
-                        textArea.select();
-                        document.execCommand("copy");
-                        textArea.remove();
-                        
-                        btn.textContent = 'Copied!';
-                        btn.classList.add('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
-                        setTimeout(() => {
-                            btn.textContent = label;
-                            btn.classList.remove('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
-                        }, 2000);
+                        const textArea = document.createElement("textarea"); textArea.value = textToCopy;
+                        textArea.style.position = "absolute"; textArea.style.left = "-9999px";
+                        document.body.appendChild(textArea); textArea.select(); document.execCommand("copy"); textArea.remove();
+                        btn.textContent = 'Copied!'; btn.classList.add('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700');
+                        setTimeout(() => { btn.textContent = label; btn.classList.remove('bg-green-50', 'text-green-700', 'border-green-300', 'dark:bg-emerald-900/30', 'dark:text-emerald-400', 'dark:border-emerald-700'); }, 2000);
                     });
                     return btn;
                 }
 
                 actionsDiv.appendChild(createCopyBtn('Copy Start', startFull));
-                if (endFull) {
-                    actionsDiv.appendChild(createCopyBtn('Copy End', endFull));
+                if (endFull) actionsDiv.appendChild(createCopyBtn('Copy End', endFull));
+
+                // Inject "Split Hourly" button if timeframe is strictly greater than 1 hour
+                if (item.hours > 1 && item.end) {
+                    const splitBtn = document.createElement('button');
+                    splitBtn.className = 'px-3 py-1.5 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-purple-500 focus:outline-none whitespace-nowrap flex items-center gap-1 shadow-sm';
+                    splitBtn.innerHTML = `✂️ Split Hourly`;
+                    splitBtn.onclick = () => splitItemHourly(index);
+                    actionsDiv.appendChild(splitBtn);
                 }
 
                 const captureMapBtn = document.createElement('button');
-                captureMapBtn.id = `capture-btn-${index}`; // Set ID for Focus Mode syncing
                 captureMapBtn.className = 'px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border border-transparent rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none whitespace-nowrap flex items-center gap-2 shadow-sm';
                 captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
 
                 actionsDiv.appendChild(captureMapBtn);
-                topBar.appendChild(textSpan);
-                topBar.appendChild(actionsDiv);
-                row.appendChild(topBar);
+                topBar.appendChild(textSpan); topBar.appendChild(actionsDiv); row.appendChild(topBar);
 
-                // Image Section (Hidden initially)
                 const imageSection = document.createElement('div');
-                imageSection.className = 'map-image-section hidden flex-col items-start gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600';
-                
-                const imgPreview = document.createElement('img');
-                imgPreview.className = 'map-preview-img max-w-full h-auto max-h-[250px] object-contain rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm';
-                
-                const downloadImgBtn = document.createElement('button');
-                downloadImgBtn.className = 'map-download-btn flex items-center gap-1.5 text-sm px-4 py-1.5 bg-slate-200 dark:bg-slate-600 rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 font-medium text-slate-800 dark:text-slate-100 transition-colors';
-                downloadImgBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Map`;
-                
-                imageSection.appendChild(imgPreview);
-                imageSection.appendChild(downloadImgBtn);
-                row.appendChild(imageSection);
+                imageSection.className = 'map-image-section hidden flex-col items-start gap-4 mt-3 pt-4 border-t border-slate-200 dark:border-slate-600 w-full';
+                const imgGallery = document.createElement('div');
+                imgGallery.className = 'flex flex-wrap gap-4 w-full';
+                imageSection.appendChild(imgGallery);
 
-                // Map capture interaction
                 captureMapBtn.addEventListener('click', async () => {
                     try {
+                        const origHtml = captureMapBtn.innerHTML;
                         captureMapBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Capturing...`;
                         captureMapBtn.disabled = true;
                         
@@ -1354,550 +1040,417 @@ Kind regards,`;
                         const croppedScreenshot = await openCropOverlay(fullScreenshot);
                         
                         if (croppedScreenshot) {
-                            imgPreview.src = croppedScreenshot;
-                            imageSection.classList.remove('hidden');
-                            imageSection.classList.add('flex');
-                            captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
+                            if (!capturedMapsData[item.id]) capturedMapsData[item.id] = [];
+                            const partNum = capturedMapsData[item.id].length + 1;
                             
-                            // Change extension to .jpg
-                            const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
+                            let safeDesc = displayText.replace(/[^a-zA-Z0-9-]/g, '_').replace(/_+/g, '_').replace(/_$/, '');
+                            const filename = `Map_${safeDesc}${partNum > 1 ? '_Part'+partNum : ''}.jpg`;
                             
-                            // Save map data for the "Download All" feature
-                            capturedMapsData[index] = {
-                                filename: filename,
-                                dataUrl: croppedScreenshot,
-                                displayText: displayText
-                            };
-                            
-                            // Update Generated Map Stats
-                            generatedMapIndices.add(index);
-                            updateStatsUI();
-                            
-                            downloadImgBtn.onclick = () => {
-                                const a = document.createElement('a');
-                                a.href = croppedScreenshot;
-                                a.download = filename;
-                                a.click();
-                            };
-                        }
+                            let displayWithPart = displayText;
+                            if (partNum > 1 || capturedMapsData[item.id].length > 0) displayWithPart = `${displayText} (Part ${partNum})`;
+
+                            capturedMapsData[item.id].push({ filename, dataUrl: croppedScreenshot, displayText: displayWithPart });
+                            generatedMapIds.add(item.id);
+                            updateStatsUI(); renderListView(); // Re-render to safely show all array images
+                        } else captureMapBtn.innerHTML = origHtml;
                     } catch (err) {
                         console.error(err);
-                        if (err.message && err.message.includes('permissions policy')) {
-                            alert("Capture blocked: Run locally.");
-                        }
-                    } finally {
-                        captureMapBtn.disabled = false;
-                        if(!imgPreview.src) {
-                            captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
-                        }
-                    }
+                        if (err.message && err.message.includes('permissions policy')) alert("Capture blocked: Run locally.");
+                    } finally { captureMapBtn.disabled = false; }
                 });
 
-                scheduleOutput.appendChild(row);
+                // Populate existing gallery images if map was previously captured
+                if (capturedMapsData[item.id] && capturedMapsData[item.id].length > 0) {
+                    imageSection.classList.remove('hidden'); imageSection.classList.add('flex');
+                    captureMapBtn.innerHTML = `➕ Add Extra Map`;
+                    
+                    capturedMapsData[item.id].forEach((mapObj, mIdx) => {
+                         const imgWrapper = document.createElement('div');
+                         imgWrapper.className = 'flex flex-col gap-2 border border-slate-200 dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm';
+                         
+                         const headerRow = document.createElement('div');
+                         headerRow.className = 'flex justify-between items-center px-1 text-xs font-bold text-slate-500 dark:text-slate-400';
+                         headerRow.innerHTML = `<span>Part ${mIdx + 1}</span>`;
+                         
+                         const downBtn = document.createElement('button');
+                         downBtn.className = 'text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1';
+                         downBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Save`;
+                         downBtn.onclick = () => { const a = document.createElement('a'); a.href=mapObj.dataUrl; a.download=mapObj.filename; a.click(); };
+                         headerRow.appendChild(downBtn);
+
+                         const imgPreview = document.createElement('img'); imgPreview.src = mapObj.dataUrl;
+                         imgPreview.className = 'max-w-full h-auto max-h-[180px] object-contain rounded border border-slate-100 dark:border-slate-700';
+                         
+                         imgWrapper.appendChild(headerRow); imgWrapper.appendChild(imgPreview); imgGallery.appendChild(imgWrapper);
+                    });
+                }
+
+                row.appendChild(imageSection); scheduleOutput.appendChild(row);
             });
+        }
+
+        function splitItemHourly(index) {
+            const item = globalParsedItems[index];
+            if (!item.end || item.hours <= 1) return;
+
+            let sH = parseInt(item.start.split(':')[0], 10); let sM = parseInt(item.start.split(':')[1], 10);
+            let startMins = sH * 60 + sM;
             
-            // Initialize Focus Mode behind the scenes
+            let eH, eM;
+            if (item.end === '23:59') { eH = 24; eM = 0; } 
+            else { eH = parseInt(item.end.split(':')[0], 10); eM = parseInt(item.end.split(':')[1], 10); }
+            let endMins = eH * 60 + eM;
+            if (endMins <= startMins) endMins += 24 * 60; // handle overnight wrap
+            
+            let newItems = [];
+            while (startMins < endMins) {
+                let chunkEndMins = Math.min(startMins + 60, endMins);
+                let curH = Math.floor(startMins / 60) % 24; let curM = startMins % 60;
+                let nextH = Math.floor(chunkEndMins / 60) % 24; let nextM = chunkEndMins % 60;
+                
+                let curStartStr = `${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`;
+                let curEndStr = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
+                
+                if (chunkEndMins % 1440 === 0 && chunkEndMins > 0) curEndStr = '23:59';
+                
+                newItems.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    date: item.date, start: curStartStr, end: curEndStr,
+                    hours: getHoursDiff(curStartStr, curEndStr), description: item.description
+                });
+                startMins = chunkEndMins;
+            }
+            
+            if (capturedMapsData[item.id]) { delete capturedMapsData[item.id]; generatedMapIds.delete(item.id); }
+            globalParsedItems.splice(index, 1, ...newItems);
+            currentTotalMaps = globalParsedItems.length;
+            
+            updateStatsUI();
+            if (isFocusMode) updateFocusModeUI(); else renderListView();
+        }
+
+        parseBtn.addEventListener('click', () => {
+            const text = scheduleInput.value;
+            const parsedItems = parseSchedule(text);
+            
+            globalParsedItems = parsedItems; fmCurrentIndex = 0; lastCropCoords = null; 
+            
+            scheduleOutput.innerHTML = ''; 
+            bulkOutputContainer.classList.add('hidden'); emailTemplateContainer.classList.add('hidden');
+            fileNameContainer.classList.add('hidden'); commentMessageContainer.classList.add('hidden');
+            parserStats.classList.add('hidden'); limitWarning.classList.add('hidden');
+            
+            generatedMapIds.clear(); capturedMapsData = {};
+            currentTotalMaps = 0; currentTotalHours = 0;
+            downloadAllBtn.classList.add('hidden'); downloadAllBtn.classList.remove('flex');
+            copyAllMapsBtn.classList.add('hidden'); copyAllMapsBtn.classList.remove('flex');
+            
+            if (parsedItems.length === 0) {
+                toggleViewBtn.classList.add('hidden'); toggleViewBtn.classList.remove('flex');
+                scheduleOutput.innerHTML = `<div class="h-full flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500 flex-grow"><p class="text-sm">No dates/times found. Please check your formatting.</p></div>`;
+                return;
+            }
+
+            toggleViewBtn.classList.remove('hidden'); toggleViewBtn.classList.add('flex');
+
+            currentTotalMaps = parsedItems.length;
+            currentTotalHours = parsedItems.reduce((sum, item) => sum + item.hours, 0);
+            updateStatsUI();
+
+            const bulkLines = parsedItems.map(item => {
+                let line = `${item.date} -${item.start}`;
+                if (item.end) line += `-${item.end}`;
+                if (item.description) line += ` - ${item.description}`;
+                return line;
+            });
+            bulkOutputText.value = bulkLines.join('\n'); bulkOutputContainer.classList.remove('hidden');
+
+            emailOutputText.value = `Hi,\n\nFind attached to this email a copy of the Trail data requested.\n\nAll responses or follow-ups must be sent via a new Trail request. This email chain is not monitored.\n\nKind regards,`;
+            emailTemplateContainer.classList.remove('hidden');
+
+            let fileNameDateStr = "";
+            if (parsedItems.length > 0) {
+                const firstDate = parsedItems[0].date.replace(/\//g, '.');
+                const lastDate = parsedItems[parsedItems.length - 1].date.replace(/\//g, '.');
+                fileNameDateStr = (firstDate === lastDate) ? firstDate : `${firstDate} - ${lastDate}`;
+            }
+            fileNameOutputText.value = `Trail data request - DW - ${fileNameDateStr}`;
+            fileNameContainer.classList.remove('hidden');
+
+            commentOutputText.value = "Trail data sent";
+            commentMessageContainer.classList.remove('hidden');
+
+            renderListView();
             if(isFocusMode) updateFocusModeUI();
         });
 
-        // --- Focus Mode Core Logic ---
-        const fmStep = document.getElementById('fmStep');
-        const fmTotal = document.getElementById('fmTotal');
-        const fmDisplayText = document.getElementById('fmDisplayText');
-        const fmCopyStartBtn = document.getElementById('fmCopyStartBtn');
-        const fmCopyEndBtn = document.getElementById('fmCopyEndBtn');
-        const fmCopyBothBtn = document.getElementById('fmCopyBothBtn');
-        const fmCaptureBtn = document.getElementById('fmCaptureBtn');
-        const fmCaptureText = document.getElementById('fmCaptureText');
-        const fmQuickCaptureBtn = document.getElementById('fmQuickCaptureBtn');
-        const fmPrevBtn = document.getElementById('fmPrevBtn');
-        const fmSkipBtn = document.getElementById('fmSkipBtn');
-        const fmProgressBar = document.getElementById('fmProgressBar');
+        const fmStep = document.getElementById('fmStep'); const fmTotal = document.getElementById('fmTotal');
+        const fmDisplayText = document.getElementById('fmDisplayText'); const fmProgressBar = document.getElementById('fmProgressBar');
+        const fmCopyStartBtn = document.getElementById('fmCopyStartBtn'); const fmCopyEndBtn = document.getElementById('fmCopyEndBtn');
+        const fmCopyBothBtn = document.getElementById('fmCopyBothBtn'); const fmCaptureBtn = document.getElementById('fmCaptureBtn');
+        const fmCaptureText = document.getElementById('fmCaptureText'); const fmQuickCaptureBtn = document.getElementById('fmQuickCaptureBtn');
+        const fmAddPartBtn = document.getElementById('fmAddPartBtn'); const fmSplitBtn = document.getElementById('fmSplitBtn');
+        const fmMapsCount = document.getElementById('fmMapsCount');
+        const fmPrevBtn = document.getElementById('fmPrevBtn'); const fmSkipBtn = document.getElementById('fmSkipBtn');
 
         function updateFocusModeUI() {
             if (globalParsedItems.length === 0) return;
             
             if (fmCurrentIndex >= globalParsedItems.length) {
                 fmDisplayText.innerHTML = "🎉 All Maps Captured!";
-                fmCopyStartBtn.style.display = 'none';
-                fmCopyEndBtn.style.display = 'none';
-                fmCopyBothBtn.style.display = 'none';
-                fmCaptureBtn.style.display = 'none';
-                fmStep.textContent = globalParsedItems.length;
-                fmProgressBar.style.width = '100%';
+                fmCopyStartBtn.style.display = 'none'; fmCopyEndBtn.style.display = 'none';
+                fmCopyBothBtn.style.display = 'none'; fmCaptureBtn.style.display = 'none';
+                fmAddPartBtn.style.display = 'none'; fmSplitBtn.style.display = 'none';
+                fmMapsCount.style.display = 'none';
+                fmStep.textContent = globalParsedItems.length; fmProgressBar.style.width = '100%';
                 return;
             }
 
             const item = globalParsedItems[fmCurrentIndex];
-            const startFull = `${item.date} ${item.start}`;
-            const endFull = item.end ? `${item.date} ${item.end}` : null;
-            const displayText = item.end ? `${startFull} - ${item.end}` : startFull;
-
-            fmStep.textContent = fmCurrentIndex + 1;
-            fmTotal.textContent = globalParsedItems.length;
-            // Progress bar
+            const startFull = `${item.date} ${item.start}`; const endFull = item.end ? `${item.date} ${item.end}` : null;
+            
+            fmStep.textContent = fmCurrentIndex + 1; fmTotal.textContent = globalParsedItems.length;
             fmProgressBar.style.width = `${((fmCurrentIndex) / globalParsedItems.length) * 100}%`;
 
             fmDisplayText.innerHTML = `${item.date} <br> <span class="text-blue-600 dark:text-blue-400">${item.start}${item.end ? ' - ' + item.end : ''}</span>`;
-            if (item.description) {
-                fmDisplayText.innerHTML += `<div class="text-lg sm:text-xl text-slate-500 dark:text-slate-400 mt-2 font-medium break-words px-4">${item.description}</div>`;
-            }
+            if (item.description) fmDisplayText.innerHTML += `<div class="text-lg sm:text-xl text-slate-500 dark:text-slate-400 mt-2 font-medium break-words px-4">${item.description}</div>`;
 
-            fmCopyStartBtn.style.display = 'block';
-            fmCopyEndBtn.style.display = item.end ? 'block' : 'none';
-            fmCopyBothBtn.style.display = item.end ? 'block' : 'none';
-            fmCaptureBtn.style.display = 'flex';
+            fmCopyStartBtn.style.display = 'block'; fmCopyEndBtn.style.display = item.end ? 'block' : 'none';
+            fmCopyBothBtn.style.display = item.end ? 'block' : 'none'; fmCaptureBtn.style.display = 'flex';
 
-            // Show Quick Capture if we have memorized coordinates
             if (lastCropCoords) {
-                fmQuickCaptureBtn.classList.remove('hidden');
-                fmQuickCaptureBtn.classList.add('flex');
+                fmQuickCaptureBtn.classList.remove('hidden'); fmQuickCaptureBtn.classList.add('flex');
                 fmCaptureText.textContent = "Manual Crop";
             } else {
-                fmQuickCaptureBtn.classList.add('hidden');
-                fmQuickCaptureBtn.classList.remove('flex');
+                fmQuickCaptureBtn.classList.add('hidden'); fmQuickCaptureBtn.classList.remove('flex');
                 fmCaptureText.textContent = "Capture & Advance";
             }
 
-            // Check if map is already captured
-            if (generatedMapIndices.has(fmCurrentIndex)) {
-                fmCaptureBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
-                fmCaptureBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-500');
-                if(!lastCropCoords) fmCaptureText.textContent = "Captured (Retake)";
+            if (capturedMapsData[item.id] && capturedMapsData[item.id].length > 0) {
+                fmCaptureBtn.classList.replace('bg-blue-600', 'bg-emerald-600'); fmCaptureBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-500');
+                fmAddPartBtn.classList.remove('hidden'); fmAddPartBtn.classList.add('flex');
+                fmMapsCount.textContent = `✅ ${capturedMapsData[item.id].length} Maps captured for this period`;
+                fmMapsCount.classList.remove('hidden');
             } else {
-                fmCaptureBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
-                fmCaptureBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
+                fmCaptureBtn.classList.replace('bg-emerald-600', 'bg-blue-600'); fmCaptureBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
+                fmAddPartBtn.classList.add('hidden'); fmAddPartBtn.classList.remove('flex');
+                fmMapsCount.classList.add('hidden');
             }
 
-            fmPrevBtn.disabled = fmCurrentIndex === 0;
-            fmSkipBtn.disabled = fmCurrentIndex === globalParsedItems.length - 1;
+            if (item.hours > 1 && item.end) { fmSplitBtn.classList.remove('hidden'); fmSplitBtn.classList.add('flex'); } 
+            else { fmSplitBtn.classList.add('hidden'); fmSplitBtn.classList.remove('flex'); }
 
-            // Setup copy events
+            fmPrevBtn.disabled = fmCurrentIndex === 0; fmSkipBtn.disabled = fmCurrentIndex === globalParsedItems.length - 1;
+
             fmCopyStartBtn.onclick = () => doFocusCopy(fmCopyStartBtn, startFull, 'Copy Start');
             fmCopyEndBtn.onclick = () => doFocusCopy(fmCopyEndBtn, endFull, 'Copy End');
-            fmCopyBothBtn.onclick = () => {
-                const combined = `${startFull}\t${endFull}`;
-                doFocusCopy(fmCopyBothBtn, combined, '⚡ Tip: Click to Copy Both (Tab-Separated)');
-            };
+            fmCopyBothBtn.onclick = () => doFocusCopy(fmCopyBothBtn, `${startFull}\t${endFull}`, '⚡ Tip: Click to Copy Both (Tab-Separated)');
         }
 
         function doFocusCopy(btn, text, originalText) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "absolute";
-            textArea.style.left = "-9999px";
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand("copy");
-            textArea.remove();
-
-            btn.textContent = '✅ Copied!';
-            btn.classList.add('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.classList.remove('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
-            }, 1000);
+            const textArea = document.createElement("textarea"); textArea.value = text;
+            textArea.style.position = "absolute"; textArea.style.left = "-9999px";
+            document.body.appendChild(textArea); textArea.select(); document.execCommand("copy"); textArea.remove();
+            btn.textContent = '✅ Copied!'; btn.classList.add('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
+            setTimeout(() => { btn.textContent = originalText; btn.classList.remove('bg-green-100', 'text-green-800', 'border-green-300', 'dark:bg-emerald-900/50', 'dark:text-emerald-400'); }, 1000);
         }
 
         fmPrevBtn.onclick = () => { if (fmCurrentIndex > 0) { fmCurrentIndex--; updateFocusModeUI(); } };
-        fmSkipBtn.onclick = () => { 
-            if (fmCurrentIndex < globalParsedItems.length - 1) { 
-                copyFutureItem(1);
-                fmCurrentIndex++; 
-                updateFocusModeUI(); 
-            } 
-        };
+        fmSkipBtn.onclick = () => { if (fmCurrentIndex < globalParsedItems.length - 1) { copyFutureItem(1); fmCurrentIndex++; updateFocusModeUI(); } };
+        fmSplitBtn.onclick = () => { splitItemHourly(fmCurrentIndex); };
 
-        // Keyboard Shortcuts for Focus Mode
         document.addEventListener('keydown', (e) => {
-            if (!isFocusMode || fmCurrentIndex >= globalParsedItems.length) return;
-            
-            // Ignore if user is typing in an input field somewhere else
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-            if (e.key.toLowerCase() === 'c') {
-                e.preventDefault();
-                fmCopyBothBtn.click();
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (lastCropCoords && !fmQuickCaptureBtn.disabled) {
-                    fmQuickCaptureBtn.click();
-                } else if (!lastCropCoords && !fmCaptureBtn.disabled) {
-                    fmCaptureBtn.click();
-                }
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                fmSkipBtn.click();
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                fmPrevBtn.click();
-            }
+            if (!isFocusMode || fmCurrentIndex >= globalParsedItems.length || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key.toLowerCase() === 'c') { e.preventDefault(); fmCopyBothBtn.click(); } 
+            else if (e.key === 'Enter') { e.preventDefault(); if (lastCropCoords && !fmQuickCaptureBtn.disabled) fmQuickCaptureBtn.click(); else if (!lastCropCoords && !fmCaptureBtn.disabled) fmCaptureBtn.click(); } 
+            else if (e.key === 'ArrowRight') { e.preventDefault(); fmSkipBtn.click(); } 
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); fmPrevBtn.click(); }
         });
 
-        // Helper: Synchronously copy the NEXT item to clipboard during a trusted event (Click/Keydown)
         function copyFutureItem(offset) {
             const targetIndex = fmCurrentIndex + offset;
             if (targetIndex >= globalParsedItems.length) return;
-            
             const item = globalParsedItems[targetIndex];
             const startFull = `${item.date} ${item.start}`;
-            const endFull = item.end ? `${item.date} ${item.end}` : null;
-            const textToCopy = endFull ? `${startFull}\t${endFull}` : startFull;
-
-            const textArea = document.createElement("textarea");
-            textArea.value = textToCopy;
-            textArea.style.position = "absolute";
-            textArea.style.left = "-9999px";
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand("copy");
-            textArea.remove();
+            const textToCopy = item.end ? `${startFull}\t${item.date} ${item.end}` : startFull;
+            const textArea = document.createElement("textarea"); textArea.value = textToCopy;
+            textArea.style.position = "absolute"; textArea.style.left = "-9999px";
+            document.body.appendChild(textArea); textArea.select(); document.execCommand("copy"); textArea.remove();
             
-            // Visual feedback on the Copy Both button
-            const copyBothBtn = document.getElementById('fmCopyBothBtn');
-            if (copyBothBtn) {
-                copyBothBtn.textContent = '⚡ Auto-Copied Next!';
-                copyBothBtn.classList.add('text-green-600', 'dark:text-green-400');
-                setTimeout(() => {
-                    copyBothBtn.textContent = '⚡ Tip: Click to Copy Both (Tab-Separated)';
-                    copyBothBtn.classList.remove('text-green-600', 'dark:text-green-400');
-                }, 1500);
+            if (fmCopyBothBtn) {
+                fmCopyBothBtn.textContent = '⚡ Auto-Copied Next!'; fmCopyBothBtn.classList.add('text-green-600', 'dark:text-green-400');
+                setTimeout(() => { fmCopyBothBtn.textContent = '⚡ Tip: Click to Copy Both (Tab-Separated)'; fmCopyBothBtn.classList.remove('text-green-600', 'dark:text-green-400'); }, 1500);
             }
         }
 
-        // Focus Mode Quick Capture (1-Click Memory Crop)
+        async function doFocusCapture(advanceOnSuccess) {
+            const item = globalParsedItems[fmCurrentIndex];
+            const fullScreenshot = await getScreenCaptureDataUrl();
+            const croppedScreenshot = await openCropOverlay(fullScreenshot);
+
+            if (croppedScreenshot) {
+                if (!capturedMapsData[item.id]) capturedMapsData[item.id] = [];
+                const partNum = capturedMapsData[item.id].length + 1;
+                
+                const startFull = `${item.date} ${item.start}`;
+                let displayText = item.end ? `${startFull} - ${item.end}` : startFull;
+                if (item.description) displayText += ` (${item.description})`;
+                
+                let safeDesc = displayText.replace(/[^a-zA-Z0-9-]/g, '_').replace(/_+/g, '_').replace(/_$/, '');
+                const filename = `Map_${safeDesc}${partNum > 1 ? '_Part'+partNum : ''}.jpg`;
+                
+                let displayWithPart = displayText;
+                if (partNum > 1 || capturedMapsData[item.id].length > 0) displayWithPart = `${displayText} (Part ${partNum})`;
+
+                capturedMapsData[item.id].push({ filename, dataUrl: croppedScreenshot, displayText: displayWithPart });
+                generatedMapIds.add(item.id); updateStatsUI(); renderListView();
+
+                if (advanceOnSuccess) fmCurrentIndex++;
+                updateFocusModeUI();
+                return true;
+            }
+            return false;
+        }
+
+        fmAddPartBtn.onclick = async () => {
+            const origHtml = fmAddPartBtn.innerHTML;
+            fmAddPartBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Capturing Extra...`;
+            fmAddPartBtn.disabled = true;
+            try { await doFocusCapture(false); } catch (err) { console.error(err); } finally { fmAddPartBtn.innerHTML = origHtml; fmAddPartBtn.disabled = false; }
+        };
+
         fmQuickCaptureBtn.onclick = async () => {
             if (!lastCropCoords) return;
-            
-            // AUTO-COPY the next item immediately while we still have trusted event context
             copyFutureItem(1);
-
             try {
-                const originalHtml = fmQuickCaptureBtn.innerHTML;
+                const origHtml = fmQuickCaptureBtn.innerHTML;
                 fmQuickCaptureBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>`;
-                fmQuickCaptureBtn.disabled = true;
-                fmCaptureBtn.disabled = true;
+                fmQuickCaptureBtn.disabled = true; fmCaptureBtn.disabled = true;
 
                 const fullScreenshot = await getScreenCaptureDataUrl();
-                
-                // Apply crop instantly in background
                 const img = new Image();
                 img.onload = () => {
                     const resCanvas = document.createElement('canvas');
-                    resCanvas.width = lastCropCoords.w;
-                    resCanvas.height = lastCropCoords.h;
+                    resCanvas.width = lastCropCoords.w; resCanvas.height = lastCropCoords.h;
                     resCanvas.getContext('2d').drawImage(img, lastCropCoords.x, lastCropCoords.y, lastCropCoords.w, lastCropCoords.h, 0, 0, lastCropCoords.w, lastCropCoords.h);
                     
                     const croppedScreenshot = resCanvas.toDataURL('image/jpeg', 0.8);
-                    
                     const item = globalParsedItems[fmCurrentIndex];
+                    if (!capturedMapsData[item.id]) capturedMapsData[item.id] = [];
+                    const partNum = capturedMapsData[item.id].length + 1;
+
                     const startFull = `${item.date} ${item.start}`;
                     let displayText = item.end ? `${startFull} - ${item.end}` : startFull;
                     if (item.description) displayText += ` (${item.description})`;
                     
-                    const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-
-                    capturedMapsData[fmCurrentIndex] = {
-                        filename: filename,
-                        dataUrl: croppedScreenshot,
-                        displayText: displayText
-                    };
-
-                    generatedMapIndices.add(fmCurrentIndex);
-                    updateStatsUI();
-
-                    // Sync state back to the hidden List View
-                    const row = document.getElementById(`row-${fmCurrentIndex}`);
-                    if (row) {
-                        const imgPreview = row.querySelector('.map-preview-img');
-                        const imageSection = row.querySelector('.map-image-section');
-                        const downloadImgBtn = row.querySelector('.map-download-btn');
-                        const listCaptureBtn = document.getElementById(`capture-btn-${fmCurrentIndex}`);
-
-                        imgPreview.src = croppedScreenshot;
-                        imageSection.classList.remove('hidden');
-                        imageSection.classList.add('flex');
-                        listCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
-
-                        downloadImgBtn.onclick = () => {
-                            const a = document.createElement('a');
-                            a.href = croppedScreenshot;
-                            a.download = filename;
-                            a.click();
-                        };
-                    }
-
-                    // Auto Advance
-                    fmCurrentIndex++;
-                    updateFocusModeUI();
+                    let safeDesc = displayText.replace(/[^a-zA-Z0-9-]/g, '_').replace(/_+/g, '_').replace(/_$/, '');
+                    const filename = `Map_${safeDesc}${partNum > 1 ? '_Part'+partNum : ''}.jpg`;
                     
-                    fmQuickCaptureBtn.innerHTML = originalHtml;
-                    fmQuickCaptureBtn.disabled = false;
-                    fmCaptureBtn.disabled = false;
+                    let displayWithPart = displayText;
+                    if (partNum > 1 || capturedMapsData[item.id].length > 0) displayWithPart = `${displayText} (Part ${partNum})`;
+
+                    capturedMapsData[item.id].push({ filename, dataUrl: croppedScreenshot, displayText: displayWithPart });
+                    generatedMapIds.add(item.id); updateStatsUI(); renderListView();
+
+                    fmCurrentIndex++; updateFocusModeUI();
+                    fmQuickCaptureBtn.innerHTML = origHtml; fmQuickCaptureBtn.disabled = false; fmCaptureBtn.disabled = false;
                 };
                 img.src = fullScreenshot;
-
             } catch (err) {
-                console.error(err);
-                fmQuickCaptureBtn.disabled = false;
-                fmCaptureBtn.disabled = false;
-                updateFocusModeUI();
+                console.error(err); fmQuickCaptureBtn.disabled = false; fmCaptureBtn.disabled = false; updateFocusModeUI();
             }
         };
 
-        // Focus Mode Manual Capture Logic
         fmCaptureBtn.onclick = async () => {
             try {
-                // AUTO-COPY the next item immediately while we still have trusted event context
                 copyFutureItem(1);
-
-                const originalHtml = fmCaptureBtn.innerHTML;
+                const origHtml = fmCaptureBtn.innerHTML;
                 fmCaptureBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Capturing...`;
                 fmCaptureBtn.disabled = true;
-
-                const fullScreenshot = await getScreenCaptureDataUrl();
-                const croppedScreenshot = await openCropOverlay(fullScreenshot);
-
-                if (croppedScreenshot) {
-                    const item = globalParsedItems[fmCurrentIndex];
-                    const startFull = `${item.date} ${item.start}`;
-                    let displayText = item.end ? `${startFull} - ${item.end}` : startFull;
-                    if (item.description) displayText += ` (${item.description})`;
-                    
-                    const filename = `Map-${displayText.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-
-                    capturedMapsData[fmCurrentIndex] = {
-                        filename: filename,
-                        dataUrl: croppedScreenshot,
-                        displayText: displayText
-                    };
-
-                    generatedMapIndices.add(fmCurrentIndex);
-                    updateStatsUI();
-
-                    // Sync state back to the hidden List View
-                    const row = document.getElementById(`row-${fmCurrentIndex}`);
-                    if (row) {
-                        const imgPreview = row.querySelector('.map-preview-img');
-                        const imageSection = row.querySelector('.map-image-section');
-                        const downloadImgBtn = row.querySelector('.map-download-btn');
-                        const listCaptureBtn = document.getElementById(`capture-btn-${fmCurrentIndex}`);
-
-                        imgPreview.src = croppedScreenshot;
-                        imageSection.classList.remove('hidden');
-                        imageSection.classList.add('flex');
-                        listCaptureBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Retake Map`;
-
-                        downloadImgBtn.onclick = () => {
-                            const a = document.createElement('a');
-                            a.href = croppedScreenshot;
-                            a.download = filename;
-                            a.click();
-                        };
-                    }
-
-                    // Auto Advance to Next Timeframe
-                    fmCurrentIndex++;
-                    updateFocusModeUI();
-                } else {
-                    fmCaptureBtn.innerHTML = originalHtml;
-                }
+                const success = await doFocusCapture(true);
+                if (!success) fmCaptureBtn.innerHTML = origHtml;
             } catch (err) {
-                console.error(err);
-                if (err.message && err.message.includes('permissions policy')) {
-                    alert("Capture blocked: Please run this file locally.");
-                }
-                updateFocusModeUI(); // Reset button
-            } finally {
-                fmCaptureBtn.disabled = false;
-            }
+                console.error(err); if (err.message && err.message.includes('permissions policy')) alert("Capture blocked: Please run this file locally.");
+                updateFocusModeUI(); 
+            } finally { fmCaptureBtn.disabled = false; }
         };
 
-        // Copy Bulk List logic
-        copyBulkBtn.addEventListener('click', () => {
-            bulkOutputText.select();
-            document.execCommand("copy");
-            
-            const originalHtml = copyBulkBtn.innerHTML;
-            copyBulkBtn.innerHTML = `Copied!`;
-            copyBulkBtn.classList.add('bg-green-100', 'text-green-800', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
-            setTimeout(() => {
-                copyBulkBtn.innerHTML = originalHtml;
-                copyBulkBtn.classList.remove('bg-green-100', 'text-green-800', 'dark:bg-emerald-900/50', 'dark:text-emerald-400');
-            }, 2000);
-        });
+        function setupCopyButton(btnId, targetId, textClass, activeClass, successText) {
+            const btn = document.getElementById(btnId);
+            const target = document.getElementById(targetId);
+            btn.addEventListener('click', () => {
+                target.select(); document.execCommand("copy");
+                const originalHtml = btn.innerHTML; btn.innerHTML = successText;
+                btn.classList.add(...activeClass.split(' ')); btn.classList.remove(...textClass.split(' '));
+                setTimeout(() => { btn.innerHTML = originalHtml; btn.classList.remove(...activeClass.split(' ')); btn.classList.add(...textClass.split(' ')); }, 2000);
+            });
+        }
 
-        // Copy Email logic
-        copyEmailBtn.addEventListener('click', () => {
-            emailOutputText.select();
-            document.execCommand("copy");
-            
-            const originalHtml = copyEmailBtn.innerHTML;
-            copyEmailBtn.innerHTML = `Copied!`;
-            copyEmailBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-            copyEmailBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-            setTimeout(() => {
-                copyEmailBtn.innerHTML = originalHtml;
-                copyEmailBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                copyEmailBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-            }, 2000);
-        });
+        setupCopyButton('copyBulkBtn', 'bulkOutputText', 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600', 'bg-green-100 text-green-800 dark:bg-emerald-900/50 dark:text-emerald-400', 'Copied!');
+        setupCopyButton('copyEmailBtn', 'emailOutputText', 'bg-blue-600 hover:bg-blue-700', 'bg-green-600 hover:bg-green-700', 'Copied!');
+        setupCopyButton('copyFileNameBtn', 'fileNameOutputText', 'bg-purple-600 hover:bg-purple-700', 'bg-green-600 hover:bg-green-700', 'Copied!');
+        setupCopyButton('copyCommentBtn', 'commentOutputText', 'bg-amber-500 hover:bg-amber-600', 'bg-green-600 hover:bg-green-700', 'Copied!');
 
-        // Copy File Name logic
-        copyFileNameBtn.addEventListener('click', () => {
-            fileNameOutputText.select();
-            document.execCommand("copy");
-            
-            const originalHtml = copyFileNameBtn.innerHTML;
-            copyFileNameBtn.innerHTML = `Copied!`;
-            copyFileNameBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-            copyFileNameBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
-            setTimeout(() => {
-                copyFileNameBtn.innerHTML = originalHtml;
-                copyFileNameBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                copyFileNameBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
-            }, 2000);
-        });
-
-        // Copy Comment Message logic
-        copyCommentBtn.addEventListener('click', () => {
-            commentOutputText.select();
-            document.execCommand("copy");
-            
-            const originalHtml = copyCommentBtn.innerHTML;
-            copyCommentBtn.innerHTML = `Copied!`;
-            copyCommentBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-            copyCommentBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
-            setTimeout(() => {
-                copyCommentBtn.innerHTML = originalHtml;
-                copyCommentBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                copyCommentBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
-            }, 2000);
-        });
-
-        // Download All Maps Logic (ZIP Generation)
         downloadAllBtn.addEventListener('click', async () => {
             if (Object.keys(capturedMapsData).length === 0) return;
-            
             const originalHtml = downloadAllBtn.innerHTML;
             downloadAllBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Zipping...`;
             downloadAllBtn.disabled = true;
-            
             try {
                 const zip = new JSZip();
-                
-                // Add all captured maps to the zip file
-                for (const key in capturedMapsData) {
-                    const map = capturedMapsData[key];
-                    // Strip the "data:image/png;base64," prefix to get raw base64 data
-                    const base64Data = map.dataUrl.split(',')[1];
-                    zip.file(map.filename, base64Data, {base64: true});
+                for (const id in capturedMapsData) {
+                    capturedMapsData[id].forEach(map => { zip.file(map.filename, map.dataUrl.split(',')[1], {base64: true}); });
                 }
-                
-                // Generate and download the zip
                 const content = await zip.generateAsync({type:"blob"});
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const zipFilename = `Trail-Maps-${timestamp}.zip`;
-                
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(content);
-                a.download = zipFilename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
-                
-                // Show success state
+                const a = document.createElement("a"); a.href = URL.createObjectURL(content);
+                a.download = `Trail-Maps-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
                 downloadAllBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Downloaded!`;
                 downloadAllBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
-                
-                setTimeout(() => {
-                    downloadAllBtn.innerHTML = originalHtml;
-                    downloadAllBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
-                    downloadAllBtn.disabled = false;
-                }, 3000);
+                setTimeout(() => { downloadAllBtn.innerHTML = originalHtml; downloadAllBtn.classList.replace('bg-emerald-500', 'bg-emerald-600'); downloadAllBtn.disabled = false; }, 3000);
             } catch (err) {
-                console.error("Failed to zip maps:", err);
-                alert("Failed to create ZIP file. Please try downloading individually.");
-                downloadAllBtn.innerHTML = originalHtml;
-                downloadAllBtn.disabled = false;
+                console.error("Failed to zip maps:", err); alert("Failed to create ZIP file. Please try downloading individually.");
+                downloadAllBtn.innerHTML = originalHtml; downloadAllBtn.disabled = false;
             }
         });
 
-        // Copy All Maps to Clipboard Logic (Rich Text Format)
         copyAllMapsBtn.addEventListener('click', async () => {
             if (Object.keys(capturedMapsData).length === 0) return;
-            
             const originalHtml = copyAllMapsBtn.innerHTML;
             copyAllMapsBtn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-800 dark:border-white"></div> Copying...`;
             copyAllMapsBtn.disabled = true;
-
             try {
-                // Construct Rich HTML content for clipboard
                 let htmlContent = `<div style="font-family: Arial, sans-serif;">`;
-                
-                // Sort keys to maintain chronological chronological top-down order
-                const sortedKeys = Object.keys(capturedMapsData).map(Number).sort((a, b) => a - b);
-                
-                for (const key of sortedKeys) {
-                    const map = capturedMapsData[key];
-                    // Format identically to the requested Word doc layout
-                    htmlContent += `
-                        <p style="margin-bottom: 8px; font-size: 11pt;"><strong><u>${map.displayText}</u></strong></p>
-                        <img src="${map.dataUrl}" style="max-width: 100%; border: 1px solid #d1d5db;" alt="Map for ${map.displayText}" />
-                        <br><br>
-                    `;
+                for (const item of globalParsedItems) {
+                    if (capturedMapsData[item.id]) {
+                        capturedMapsData[item.id].forEach(map => {
+                            htmlContent += `<p style="margin-bottom: 8px; font-size: 11pt;"><strong><u>${map.displayText}</u></strong></p><img src="${map.dataUrl}" style="max-width: 100%; border: 1px solid #d1d5db;" alt="Map for ${map.displayText}" /><br><br>`;
+                        });
+                    }
                 }
                 htmlContent += `</div>`;
-
-                // Create hidden contenteditable div to execute the copy command
-                const hiddenDiv = document.createElement('div');
-                hiddenDiv.contentEditable = true;
-                hiddenDiv.innerHTML = htmlContent;
-                hiddenDiv.style.position = 'absolute';
-                hiddenDiv.style.left = '-9999px';
-                hiddenDiv.style.top = '-9999px';
+                const hiddenDiv = document.createElement('div'); hiddenDiv.contentEditable = true; hiddenDiv.innerHTML = htmlContent;
+                hiddenDiv.style.position = 'absolute'; hiddenDiv.style.left = '-9999px'; hiddenDiv.style.top = '-9999px';
                 document.body.appendChild(hiddenDiv);
-
-                // Select the rich content
-                const range = document.createRange();
-                range.selectNodeContents(hiddenDiv);
-                const selection = window.getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
-
-                // Execute copy
+                const range = document.createRange(); range.selectNodeContents(hiddenDiv);
+                const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
                 const successful = document.execCommand('copy');
+                selection.removeAllRanges(); document.body.removeChild(hiddenDiv);
                 
-                // Cleanup
-                selection.removeAllRanges();
-                document.body.removeChild(hiddenDiv);
-
                 if (successful) {
                     copyAllMapsBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
-                    copyAllMapsBtn.classList.replace('bg-slate-200', 'bg-green-100');
-                    copyAllMapsBtn.classList.replace('dark:bg-slate-700', 'dark:bg-emerald-900/50');
+                    copyAllMapsBtn.classList.replace('bg-slate-200', 'bg-green-100'); copyAllMapsBtn.classList.replace('dark:bg-slate-700', 'dark:bg-emerald-900/50');
                     copyAllMapsBtn.classList.add('text-green-800', 'dark:text-emerald-400');
-                } else {
-                    throw new Error("Copy command failed");
-                }
-                
+                } else throw new Error("Copy command failed");
                 setTimeout(() => {
-                    copyAllMapsBtn.innerHTML = originalHtml;
-                    copyAllMapsBtn.classList.replace('bg-green-100', 'bg-slate-200');
-                    copyAllMapsBtn.classList.replace('dark:bg-emerald-900/50', 'dark:bg-slate-700');
-                    copyAllMapsBtn.classList.remove('text-green-800', 'dark:text-emerald-400');
-                    copyAllMapsBtn.disabled = false;
+                    copyAllMapsBtn.innerHTML = originalHtml; copyAllMapsBtn.classList.replace('bg-green-100', 'bg-slate-200'); copyAllMapsBtn.classList.replace('dark:bg-emerald-900/50', 'dark:bg-slate-700');
+                    copyAllMapsBtn.classList.remove('text-green-800', 'dark:text-emerald-400'); copyAllMapsBtn.disabled = false;
                 }, 3000);
-
             } catch (err) {
-                console.error("Failed to copy maps:", err);
-                alert("Failed to copy images to clipboard. Your browser might block this action.");
-                copyAllMapsBtn.innerHTML = originalHtml;
-                copyAllMapsBtn.disabled = false;
+                console.error("Failed to copy maps:", err); alert("Failed to copy images to clipboard. Your browser might block this action.");
+                copyAllMapsBtn.innerHTML = originalHtml; copyAllMapsBtn.disabled = false;
             }
         });
-
     </script>
 </body>
 </html>
