@@ -783,10 +783,21 @@
             return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
         }
 
+        // Normalizes messy/typo'd time tokens (e.g. "11;45AM" -> "11:45AM", "1245PM" -> "12:45PM")
+        // so the time-pair regex can recognize them as a single start/end token.
+        function normalizeTimeTokens(s) {
+            // Semicolon mistakenly used instead of colon between hour and minutes
+            s = s.replace(/(\d{1,2});([0-5]\d)/g, '$1:$2');
+            // Concatenated digit run + meridiem with no colon, e.g. "1245PM" or "845 AM"
+            s = s.replace(/\b(\d{1,2})(\d{2})\s*(AM|PM)\b/gi, '$1:$2$3');
+            return s;
+        }
+
         function parseSchedule(input) {
             // Helper to extract times securely and isolate descriptions
             function extractTimesAndDescriptions(rawStr) {
                 let str = rawStr.replace(/^(?:times:?|from|for|:)\s+/i, '').trim();
+                str = normalizeTimeTokens(str);
                 let times = [];
                 let cleanStrForDesc = str;
                 
@@ -870,7 +881,7 @@
             });
 
             function parseFormattedTime(t) {
-                let clean = t.toUpperCase().replace(/[\s.,;:]/g, ''); 
+                let clean = t.toUpperCase().replace(/[\s.,;]/g, '');
                 if (clean === '12:00MIDNIGHT' || clean === '12MIDNIGHT' || clean === 'MIDNIGHT' || clean === '00:00' || clean === '24:00') return '00:00';
                 if (clean === '12NOON' || clean === 'NOON' || clean === '12:00NOON') return '12:00';
                 let m = clean.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM|HRS)?$/);
