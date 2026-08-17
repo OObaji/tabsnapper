@@ -196,6 +196,59 @@
                             <textarea id="emailOutputText" rows="8" readonly class="w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-blue-50/50 dark:bg-slate-900/80 text-sm focus:outline-none resize-y text-slate-800 dark:text-slate-200"></textarea>
                         </div>
 
+                        <!-- Exception Email Generator Card -->
+                        <div id="exceptionEmailContainer" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-rose-200 dark:border-rose-900/50 p-6 animate-fade-in relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+                            <div class="pl-2 mb-4">
+                                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">Exception Email Generator</h3>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">For cases the standard template doesn't cover — dead tag, no signal, device fault, etc.</p>
+                            </div>
+
+                            <div class="flex flex-col gap-3 pl-2">
+                                <div>
+                                    <label for="excReasonSelect" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Reason</label>
+                                    <select id="excReasonSelect" class="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                                        <option value="dead_tag">Tag was dead / uncharged</option>
+                                        <option value="no_signal">Tag lost GPS signal / fix</option>
+                                        <option value="device_fault">Device experienced a fault</option>
+                                        <option value="no_data">No data available for this period</option>
+                                        <option value="custom">Other (type custom reason)</option>
+                                    </select>
+                                </div>
+
+                                <div id="excCustomReasonWrap" class="hidden">
+                                    <label for="excCustomReasonInput" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Custom reason</label>
+                                    <input type="text" id="excCustomReasonInput" placeholder="e.g. the collar was removed for maintenance" class="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label for="excFromDate" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Affected from</label>
+                                        <input type="date" id="excFromDate" class="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label for="excToDate" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">To (optional)</label>
+                                        <input type="date" id="excToDate" class="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none">
+                                    </div>
+                                </div>
+
+                                <label class="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer">
+                                    <input type="checkbox" id="excHasOtherData" checked class="rounded border-slate-300 dark:border-slate-600 text-rose-600 focus:ring-rose-500">
+                                    Data is attached for the rest of the request
+                                </label>
+
+                                <div>
+                                    <label for="excNotes" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Additional notes (optional)</label>
+                                    <textarea id="excNotes" rows="2" placeholder="Any extra detail to add to the email..." class="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none resize-none"></textarea>
+                                </div>
+
+                                <button id="excGenerateBtn" class="w-full flex justify-center items-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl transition-colors shadow-sm text-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                    Generate Exception Email
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- File Name Template Card -->
                         <div id="fileNameContainer" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-purple-200 dark:border-purple-900/50 p-6 animate-fade-in relative overflow-hidden">
                             <div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
@@ -673,6 +726,77 @@
         const commentMessageContainer = document.getElementById('commentMessageContainer');
         const commentOutputText = document.getElementById('commentOutputText');
         const copyCommentBtn = document.getElementById('copyCommentBtn');
+
+        // --- Exception Email Generator ---
+        const excReasonSelect = document.getElementById('excReasonSelect');
+        const excCustomReasonWrap = document.getElementById('excCustomReasonWrap');
+        const excCustomReasonInput = document.getElementById('excCustomReasonInput');
+        const excFromDate = document.getElementById('excFromDate');
+        const excToDate = document.getElementById('excToDate');
+        const excHasOtherData = document.getElementById('excHasOtherData');
+        const excNotes = document.getElementById('excNotes');
+        const excGenerateBtn = document.getElementById('excGenerateBtn');
+
+        const EXCEPTION_REASON_PHRASES = {
+            dead_tag: 'the tag was dead/uncharged',
+            no_signal: 'the tag lost GPS signal/fix',
+            device_fault: 'the device experienced a fault',
+            no_data: 'no data was recorded'
+        };
+
+        excReasonSelect.addEventListener('change', () => {
+            excCustomReasonWrap.classList.toggle('hidden', excReasonSelect.value !== 'custom');
+        });
+
+        function formatDateInputForEmail(value) {
+            if (!value) return null;
+            const [y, m, d] = value.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function generateExceptionEmail() {
+            const reasonKey = excReasonSelect.value;
+            const customReason = excCustomReasonInput.value.trim();
+            const reasonPhrase = reasonKey === 'custom'
+                ? (customReason || 'we are unable to provide the requested data')
+                : EXCEPTION_REASON_PHRASES[reasonKey];
+
+            const fromDate = formatDateInputForEmail(excFromDate.value);
+            const toDate = formatDateInputForEmail(excToDate.value);
+
+            if (!fromDate) {
+                showMessage('Please select an affected date to generate the exception email.', true);
+                excFromDate.focus();
+                return;
+            }
+            if (reasonKey === 'custom' && !customReason) {
+                showMessage('Please enter a custom reason.', true);
+                excCustomReasonInput.focus();
+                return;
+            }
+
+            let dateClause;
+            if (toDate && toDate !== fromDate) {
+                dateClause = `from ${fromDate} to ${toDate}`;
+            } else {
+                dateClause = `on ${fromDate}`;
+            }
+
+            let body = `Please note that ${reasonPhrase} ${dateClause}, so we are unable to provide location data for this period.`;
+
+            const notes = excNotes.value.trim();
+            if (notes) body += `\n\n${notes}`;
+
+            if (excHasOtherData.checked) {
+                body += `\n\nFind attached to this email a copy of the Trail data for the remaining requested period(s).`;
+            }
+
+            emailOutputText.value = `Hi,\n\n${body}\n\nAll responses or follow-ups must be sent via a new Trail request. This email chain is not monitored.\n\nKind regards,`;
+            emailTemplateContainer.classList.remove('hidden');
+            emailTemplateContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        excGenerateBtn.addEventListener('click', generateExceptionEmail);
 
         const today = new Date();
         requestDateInput.value = today.toISOString().split('T')[0];
