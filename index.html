@@ -829,7 +829,8 @@
         let generatedMapIds = new Set();
         let currentTotalMaps = 0;
         let currentTotalHours = 0;
-        let capturedMapsData = {}; 
+        let capturedMapsData = {};
+        let unavailableItemIds = new Set();
 
         // Focus Mode Global States
         let globalParsedItems = [];
@@ -934,7 +935,10 @@
                     cleanStrForDesc = cleanStrForDesc.replace(match[0], ' ');
                 }
                 
-                let description = cleanStrForDesc.replace(/[,;&]/g, ' ').replace(/\band\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+                // Only strip leading/trailing commas (separator artifacts) so commas inside a
+                // real location (e.g. "Old post office court, norwich") are preserved.
+                let description = cleanStrForDesc.replace(/[;&]/g, ' ').replace(/\band\b/gi, ' ').replace(/\s{2,}/g, ' ').trim()
+                    .replace(/^,+\s*/, '').replace(/\s*,+$/, '');
                 if (!/[a-zA-Z]/.test(description) || description.length <= 2) {
                     description = null;
                 }
@@ -1126,10 +1130,38 @@
 
                 const textSpan = document.createElement('span');
                 textSpan.className = 'font-bold text-lg text-slate-800 dark:text-slate-100 break-words tracking-tight flex items-center flex-wrap gap-y-1';
-                textSpan.innerHTML = `${displayText} ${intervalBadge}`;
-                
+
                 const actionsDiv = document.createElement('div');
                 actionsDiv.className = 'flex flex-wrap gap-2 items-center';
+
+                const unavailableBtn = document.createElement('button');
+
+                function refreshRowUnavailableUI() {
+                    const isUnavailable = unavailableItemIds.has(item.id);
+                    const unavailableBadgeHtml = isUnavailable
+                        ? `<span class="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 text-xs font-bold rounded-full ml-2 border border-red-200 dark:border-red-800">🚫 Unavailable</span>`
+                        : '';
+                    textSpan.innerHTML = `${displayText} ${intervalBadge} ${unavailableBadgeHtml}`;
+
+                    if (isUnavailable) {
+                        unavailableBtn.innerHTML = `🚫 Unavailable`;
+                        unavailableBtn.className = 'px-3 py-1.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-300 dark:border-red-800 rounded-md text-sm font-semibold transition-colors focus:ring-2 focus:ring-red-500 focus:outline-none whitespace-nowrap flex items-center gap-1.5';
+                        row.classList.add('opacity-70', 'ring-1', 'ring-red-300', 'dark:ring-red-800/70');
+                    } else {
+                        unavailableBtn.innerHTML = `🚫 Mark Unavailable`;
+                        unavailableBtn.className = 'px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-500 rounded-md text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors focus:ring-2 focus:ring-red-500 focus:outline-none whitespace-nowrap flex items-center gap-1.5';
+                        row.classList.remove('opacity-70', 'ring-1', 'ring-red-300', 'dark:ring-red-800/70');
+                    }
+                }
+
+                unavailableBtn.addEventListener('click', () => {
+                    if (unavailableItemIds.has(item.id)) unavailableItemIds.delete(item.id);
+                    else unavailableItemIds.add(item.id);
+                    refreshRowUnavailableUI();
+                    refreshGeneratedOutputs();
+                });
+
+                refreshRowUnavailableUI();
 
                 function createCopyBtn(label, textToCopy) {
                     const btn = document.createElement('button');
@@ -1173,6 +1205,7 @@
                 captureMapBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Add Map`;
 
                 actionsDiv.appendChild(captureMapBtn);
+                actionsDiv.appendChild(unavailableBtn);
                 topBar.appendChild(textSpan);
                 topBar.appendChild(actionsDiv);
                 row.appendChild(topBar);
@@ -1344,15 +1377,78 @@
                 delete capturedMapsData[item.id];
                 generatedMapIds.delete(item.id);
             }
-            
+
+            if (unavailableItemIds.has(item.id)) {
+                unavailableItemIds.delete(item.id);
+                newItems.forEach(newItem => unavailableItemIds.add(newItem.id));
+            }
+
             globalParsedItems.splice(index, 1, ...newItems);
             currentTotalMaps = globalParsedItems.length;
-            
+
             updateStatsUI();
+            refreshGeneratedOutputs();
             if (isFocusMode) {
                 updateFocusModeUI();
             } else {
                 renderListView();
+            }
+        }
+
+        // Groups items marked unavailable by date: a bare date if every item on that
+        // date is unavailable, otherwise the specific time range(s) within that date.
+        function getUnavailableGroups() {
+            const byDate = {};
+            globalParsedItems.forEach(item => {
+                if (!byDate[item.date]) byDate[item.date] = { total: 0, unavailable: [] };
+                byDate[item.date].total++;
+                if (unavailableItemIds.has(item.id)) byDate[item.date].unavailable.push(item);
+            });
+
+            const groups = [];
+            Object.keys(byDate).forEach(date => {
+                const info = byDate[date];
+                if (info.unavailable.length === 0) return;
+                if (info.unavailable.length === info.total) {
+                    groups.push(date);
+                } else {
+                    info.unavailable.forEach(item => {
+                        groups.push(`${date} ${item.start}${item.end ? '-' + item.end : ''}`);
+                    });
+                }
+            });
+            return groups;
+        }
+
+        function generateBulkOutputText() {
+            return globalParsedItems.map(item => {
+                let line = `${item.date} -${item.start}`;
+                if (item.end) line += `-${item.end}`;
+                if (item.description) line += ` - ${item.description}`;
+                if (unavailableItemIds.has(item.id)) line += ` [UNAVAILABLE]`;
+                return line;
+            }).join('\n');
+        }
+
+        function generateStandardEmailText() {
+            let body = `Find attached to this email a copy of the Trail data requested.`;
+            const unavailableGroups = getUnavailableGroups();
+            if (unavailableGroups.length > 0) {
+                const list = unavailableGroups.join(', ');
+                const plural = unavailableGroups.length > 1 ? 'these dates/times' : 'this date/time';
+                body += `\n\nPlease note we are unable to provide data for ${plural}: ${list}.`;
+            }
+            return `Hi,\n\n${body}\n\nAll responses or follow-ups must be sent via a new Trail request. This email chain is not monitored.\n\nKind regards,`;
+        }
+
+        // Re-runs the bulk list / email generation so a "Mark Unavailable" toggle is
+        // reflected immediately, without needing to re-parse.
+        function refreshGeneratedOutputs() {
+            if (!bulkOutputContainer.classList.contains('hidden')) {
+                bulkOutputText.value = generateBulkOutputText();
+            }
+            if (!emailTemplateContainer.classList.contains('hidden')) {
+                emailOutputText.value = generateStandardEmailText();
             }
         }
 
@@ -1368,6 +1464,7 @@
             parserStats.classList.add('hidden'); limitWarning.classList.add('hidden');
             
             generatedMapIds.clear(); capturedMapsData = {};
+            unavailableItemIds.clear();
             currentTotalMaps = 0; currentTotalHours = 0;
             downloadAllBtn.classList.add('hidden'); downloadAllBtn.classList.remove('flex');
             copyAllMapsBtn.classList.add('hidden'); copyAllMapsBtn.classList.remove('flex');
@@ -1384,16 +1481,11 @@
             currentTotalHours = parsedItems.reduce((sum, item) => sum + item.hours, 0);
             updateStatsUI();
 
-            const bulkLines = parsedItems.map(item => {
-                let line = `${item.date} -${item.start}`;
-                if (item.end) line += `-${item.end}`;
-                if (item.description) line += ` - ${item.description}`;
-                return line;
-            });
-            bulkOutputText.value = bulkLines.join('\n'); bulkOutputContainer.classList.remove('hidden');
+            bulkOutputContainer.classList.remove('hidden');
+            bulkOutputText.value = generateBulkOutputText();
 
-            emailOutputText.value = `Hi,\n\nFind attached to this email a copy of the Trail data requested.\n\nAll responses or follow-ups must be sent via a new Trail request. This email chain is not monitored.\n\nKind regards,`;
             emailTemplateContainer.classList.remove('hidden');
+            emailOutputText.value = generateStandardEmailText();
 
             let fileNameDateStr = "";
             if (parsedItems.length > 0) {
